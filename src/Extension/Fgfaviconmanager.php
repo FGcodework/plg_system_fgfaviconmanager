@@ -227,7 +227,8 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     /**
      * Builds the cache key for the assembled <link>/<meta> markup: every plugin option
      * that affects the OUTPUT (not the ones only affecting body-stripping, which is a
-     * separate step), plus each configured source file's mtime+size so replacing an
+     * separate step), plus each configured source file's resolved path, mtime and size, and the site's
+     * root URL / base path, so replacing or swapping an
      * image automatically invalidates the cached markup - no manual step needed for the
      * common case. Returns null if a configured source cannot be resolved (path escapes
      * JPATH_ROOT, missing, etc.) so the caller falls through to the normal build/error path.
@@ -253,6 +254,12 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
 
         $bits   = [$isAdmin ? 'admin' : 'site', 'foreignManifest=' . ($foreignManifest ? '1' : '0')];
         $bits[] = 'sitename=' . ($app !== null ? (string) $app->get('sitename', '') : '');
+
+        // The cached markup embeds absolute/root-relative icon URLs and (via the manifest)
+        // id / start_url / scope, so a domain change or a move into/out of a subfolder must
+        // never serve the old output.
+        $bits[] = 'root=' . Uri::root();
+        $bits[] = 'base=' . Uri::root(true);
 
         foreach ($outputParams as $key) {
             $bits[] = $key . '=' . (string) $this->params->get($key, '');
@@ -280,7 +287,10 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
             // and removes any risk of a stale mtime under a persistent PHP worker model.
             clearstatcache(true, $abs);
 
-            $bits[] = $key . ':' . filemtime($abs) . ':' . filesize($abs);
+            // The resolved path is part of the key: switching a slot from file A to file B
+            // must invalidate the cache even when both files happen to share size and mtime
+            // (e.g. exported together by the same tool or restored from one backup).
+            $bits[] = $key . ':' . $abs . ':' . filemtime($abs) . ':' . filesize($abs);
         }
 
         return md5(implode('|', $bits));

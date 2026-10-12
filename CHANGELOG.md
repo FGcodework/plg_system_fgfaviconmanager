@@ -1,5 +1,11 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.16.3 (2026-10-13)
+- **Fixed incomplete HTML markup cache key** (`computeMarkupCacheKey()`). The key was built from each source image's mtime and size only, so switching a slot (favicon, dark favicon, admin favicon, Apple touch icon) from file A to file B could keep the same key when both files shared size and mtime, and the plugin then served the cached `<link>`/`<meta>` markup with icon URLs generated from file A. The key now includes the resolved path of every source.
+- The key also includes `Uri::root()` and `Uri::root(true)`, so moving the site to another domain or into/out of a subfolder no longer serves cached markup with old icon URLs or an old manifest `id` / `start_url` / `scope`. (The manifest file itself is content-hashed, so a new file was already generated; only the cached markup could point at the old one.)
+- No extra I/O: still one `stat()` per source, no hashing of image contents on requests.
+- 5 new unit tests (reproduced the bug first: 4 of them failed before the fix): 49/49 pass.
+
 ## 1.16.2 (2026-10-12)
 - **Joomla 5 support.** The plugin now installs and updates on Joomla 5.x as well as 6.x: `updates.xml` target platform is `[56]\..*` and the minimum PHP is 8.1 (the Joomla 5 minimum). The code itself only uses APIs available in both versions; the J6-only restriction was purely in the update metadata.
 - Replaced the deprecated `Joomla\CMS\Filesystem\Folder` (scheduled for removal in Joomla 7) with plain PHP: new `IconGenerator::makeDir()` and `IconGenerator::removeTree()` (symlinks are unlinked, never followed). Behaviour is unchanged.

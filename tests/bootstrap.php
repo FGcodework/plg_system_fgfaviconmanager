@@ -102,6 +102,23 @@ namespace Joomla\CMS\Plugin {
     }
 }
 
+namespace Joomla\CMS\Uri {
+    /**
+     * Stand-in for Joomla\CMS\Uri\Uri - only root() is needed (markup cache key tests).
+     * Tests change $root / $base to simulate a domain change or a move into a subfolder.
+     */
+    class Uri
+    {
+        public static string $root = 'https://example.test/';
+        public static string $base = '';
+
+        public static function root($pathOnly = false)
+        {
+            return $pathOnly ? self::$base : self::$root;
+        }
+    }
+}
+
 namespace Joomla\Event {
     /**
      * Stand-in for Joomla\Event\SubscriberInterface - only the method signature matters,
