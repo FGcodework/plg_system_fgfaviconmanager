@@ -15,8 +15,6 @@
 Native <b>Joomla 5 / 6</b> system plugin that turns <b>one source image</b> into every favicon your site needs.<br>
 No template editing.
 
----
-
 ## Quick start
 
 1. Download `plg_system_fgfaviconmanager_vX.X.X.zip` from [Releases](https://github.com/FGcodework/plg_system_fgfaviconmanager/releases) and install it in **System → Install → Extensions**.
