@@ -5,11 +5,12 @@
 <h1 align="center">FG Favicon Manager</h1>
 
 <p align="center">
-  <a href="https://www.joomla.org"><img alt="Joomla" src="https://img.shields.io/badge/Joomla-5.x%20%7C%206.x-1a3867?logo=joomla&logoColor=white"></a>
-  <a href="https://www.php.net"><img alt="PHP" src="https://img.shields.io/badge/PHP-8.1%2B-777bb4?logo=php&logoColor=white"></a>
   <a href="https://github.com/FGcodework/plg_system_fgfaviconmanager/releases"><img alt="Release" src="https://img.shields.io/github/v/release/FGcodework/plg_system_fgfaviconmanager?color=ff6b4a"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--2.0--or--later-blue"></a>
-  <a href="https://ko-fi.com/FGcodework"><img alt="Ko-fi" src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white"></a>
+  <a href="https://www.joomla.org"><img alt="Joomla" src="https://img.shields.io/badge/Joomla-5.x%20%7C%206.x-1a3867?logo=joomla&logoColor=white"></a>
+  <a href="https://www.php.net"><img alt="PHP" src="https://img.shields.io/badge/PHP-8.1%2B-purple?logo=php&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--2.0-green.svg"></a>
+  <img src="https://img.shields.io/github/downloads/FGcodework/plg_system_fgfaviconmanager/total?cacheSeconds=3600&color=brown" alt="Downloads">
+  <a href="https://ko-fi.com/FGcodework"><img src="https://img.shields.io/badge/support-Ko--fi-F16061.svg?logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 Native <b>Joomla 5 / 6</b> system plugin that turns <b>one source image</b> into every favicon your site needs.<br>
