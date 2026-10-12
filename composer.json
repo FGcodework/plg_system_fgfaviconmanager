@@ -1,0 +1,12 @@
+{
+    "name": "fgcodework/plg-system-fgfaviconmanager-dev",
+    "description": "Development tooling (PHPUnit tests) for the FG Favicon Manager Joomla plugin. Not required to install or run the plugin itself.",
+    "type": "project",
+    "license": "GPL-2.0-or-later",
+    "require-dev": {
+        "phpunit/phpunit": "^9.6"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

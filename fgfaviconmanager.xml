@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension type="plugin" group="system" method="upgrade">
+    <name>plg_system_fgfaviconmanager</name>
+    <author>Fero</author>
+    <authorUrl>https://github.com/FGcodework</authorUrl>
+    <creationDate>2026-07-09</creationDate>
+    <copyright>Copyright (C) 2026. All rights reserved.</copyright>
+    <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+    <version>1.16.1</version>
+    <description>PLG_SYSTEM_FGFAVICONMANAGER_XML_DESCRIPTION</description>
+    <namespace path="src">FG\Plugin\System\Fgfaviconmanager</namespace>
+    <files>
+        <folder plugin="fgfaviconmanager">services</folder>
+        <folder>src</folder>
+        <folder>language</folder>
+    </files>
+    <languages>
+        <language tag="en-GB">language/en-GB/plg_system_fgfaviconmanager.ini</language>
+        <language tag="en-GB">language/en-GB/plg_system_fgfaviconmanager.sys.ini</language>
+        <language tag="sk-SK">language/sk-SK/plg_system_fgfaviconmanager.ini</language>
+        <language tag="sk-SK">language/sk-SK/plg_system_fgfaviconmanager.sys.ini</language>
+    </languages>
+    <updateservers>
+        <server type="extension" priority="1" name="FG Favicon Manager">https://raw.githubusercontent.com/FGcodework/plg_system_fgfaviconmanager/master/updates.xml</server>
+    </updateservers>
+    <config>
+        <inlinehelp button="show"/>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                    name="support_note"
+                    type="note"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_SUPPORT_NOTE_DESC"
+                />
+            </fieldset>
+            <fieldset name="settings" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_FRONTEND">
+                <field
+                    name="favicon_source"
+                    type="media"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_FAVICON_SOURCE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_FAVICON_SOURCE_DESC"
+                    preview="true"
+                    previewWidth="48"
+                    previewHeight="48"
+                />
+                <field
+                    name="theme_color"
+                    type="color"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_THEME_COLOR_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_THEME_COLOR_DESC"
+                    default="#ffffff"
+                />
+            </fieldset>
+            <fieldset name="advanced" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_ADVANCED">
+                <field
+                    name="favicon_dark_source"
+                    type="media"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_FAVICON_DARK_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_FAVICON_DARK_DESC"
+                    preview="true"
+                    previewWidth="48"
+                    previewHeight="48"
+                />
+                <field
+                    name="theme_color_dark"
+                    type="color"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_THEME_COLOR_DARK_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_THEME_COLOR_DARK_DESC"
+                />
+                <field
+                    name="apple_touch_icon"
+                    type="media"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_DESC"
+                    preview="true"
+                    previewWidth="64"
+                    previewHeight="64"
+                />
+                <field
+                    name="strip_mode"
+                    type="list"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_STRIP_MODE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_STRIP_MODE_DESC"
+                    default="soft"
+                    validate="options"
+                >
+                    <option value="off">PLG_SYSTEM_FGFAVICONMANAGER_STRIP_OFF</option>
+                    <option value="soft">PLG_SYSTEM_FGFAVICONMANAGER_STRIP_SOFT</option>
+                    <option value="aggressive">PLG_SYSTEM_FGFAVICONMANAGER_STRIP_AGGRESSIVE</option>
+                </field>
+                <field
+                    name="debug_mode"
+                    type="radio"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_DEBUG_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_DEBUG_DESC"
+                    default="0"
+                    layout="joomla.form.field.radio.switcher"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+            </fieldset>
+            <fieldset name="admin" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_ADMIN">
+                <field
+                    name="admin_favicon_source"
+                    type="media"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_ADMIN_FAVICON_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_ADMIN_FAVICON_DESC"
+                    preview="true"
+                    previewWidth="48"
+                    previewHeight="48"
+                />
+                <field
+                    name="admin_theme_color"
+                    type="color"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_ADMIN_THEME_COLOR_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_ADMIN_THEME_COLOR_DESC"
+                />
+                <field
+                    name="admin_use_dark_mode"
+                    type="radio"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_ADMIN_DARK_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_ADMIN_DARK_DESC"
+                    default="0"
+                    layout="joomla.form.field.radio.switcher"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+            </fieldset>
+            <fieldset name="pwa" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_PWA">
+                <field
+                    name="manifest_mode"
+                    type="list"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_MODE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_MODE_DESC"
+                    default="generate"
+                    validate="options"
+                >
+                    <option value="off">PLG_SYSTEM_FGFAVICONMANAGER_MANIFEST_OFF</option>
+                    <option value="generate">PLG_SYSTEM_FGFAVICONMANAGER_MANIFEST_GENERATE</option>
+                    <option value="defer">PLG_SYSTEM_FGFAVICONMANAGER_MANIFEST_DEFER</option>
+                </field>
+                <field
+                    name="enable_maskable"
+                    type="radio"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MASKABLE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MASKABLE_DESC"
+                    default="1"
+                    layout="joomla.form.field.radio.switcher"
+                    showon="manifest_mode!:off"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field
+                    name="maskable_padding"
+                    type="number"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MASKABLE_PADDING_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MASKABLE_PADDING_DESC"
+                    default="12"
+                    min="0"
+                    max="40"
+                    step="1"
+                    showon="manifest_mode!:off[AND]enable_maskable:1"
+                />
+                <field
+                    name="maskable_background"
+                    type="color"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MASKABLE_BG_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MASKABLE_BG_DESC"
+                    default="#ffffff"
+                    showon="manifest_mode!:off[AND]enable_maskable:1"
+                />
+                <field
+                    name="manifest_name"
+                    type="text"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_NAME_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_NAME_DESC"
+                />
+                <field
+                    name="manifest_short_name"
+                    type="text"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_SHORT_NAME_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_SHORT_NAME_DESC"
+                />
+                <field
+                    name="manifest_background_color"
+                    type="color"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_BG_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_BG_DESC"
+                    default="#ffffff"
+                />
+            </fieldset>
+            <fieldset name="apple" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_APPLE">
+                <field
+                    name="apple_web_app_capable"
+                    type="radio"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_CAPABLE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_CAPABLE_DESC"
+                    default="0"
+                    layout="joomla.form.field.radio.switcher"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field
+                    name="apple_status_bar_style"
+                    type="list"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_STATUSBAR_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_STATUSBAR_DESC"
+                    default="default"
+                    validate="options"
+                    showon="apple_web_app_capable:1"
+                >
+                    <option value="default">PLG_SYSTEM_FGFAVICONMANAGER_STATUSBAR_DEFAULT</option>
+                    <option value="black">PLG_SYSTEM_FGFAVICONMANAGER_STATUSBAR_BLACK</option>
+                    <option value="black-translucent">PLG_SYSTEM_FGFAVICONMANAGER_STATUSBAR_TRANSLUCENT</option>
+                </field>
+                <field
+                    name="apple_web_app_title"
+                    type="text"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_TITLE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_TITLE_DESC"
+                    showon="apple_web_app_capable:1"
+                />
+                <field
+                    name="enable_apple_splash"
+                    type="radio"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_SPLASH_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_SPLASH_DESC"
+                    default="0"
+                    layout="joomla.form.field.radio.switcher"
+                    showon="apple_web_app_capable:1"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field
+                    name="apple_splash_background"
+                    type="color"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_SPLASH_BG_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_APPLE_SPLASH_BG_DESC"
+                    default="#ffffff"
+                    showon="apple_web_app_capable:1[AND]enable_apple_splash:1"
+                />
+            </fieldset>
+            <fieldset name="maintenance" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_MAINTENANCE">
+                <field
+                    name="clear_cache_button"
+                    type="ClearCacheButton"
+                    addfieldprefix="FG\Plugin\System\Fgfaviconmanager\Field"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_CLEARCACHE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_CLEARCACHE_DESC"
+                />
+            </fieldset>
+            <fieldset name="info" label="PLG_SYSTEM_FGFAVICONMANAGER_FIELDSET_INFO">
+                <field
+                    name="quickstart_note"
+                    type="note"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_QUICKSTART_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_QUICKSTART_DESC"
+                />
+                <field
+                    name="sizes_note"
+                    type="note"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_SIZES_NOTE_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_SIZES_NOTE_DESC"
+                />
+            </fieldset>
+        </fields>
+    </config>
+</extension>

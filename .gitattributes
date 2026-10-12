@@ -1,0 +1,6 @@
+* text=auto
+*.ini text eol=lf
+*.php text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.png binary

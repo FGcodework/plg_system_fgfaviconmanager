@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<updates>
+    <update>
+        <name>System - FG Favicon Manager</name>
+        <description>Replaces the site and administrator favicons with icons generated automatically from a single source image (PNG, ICO, SVG, WebP/AVIF, JPEG), including Android/PWA manifest, maskable icons and iOS web-app tags.</description>
+        <element>fgfaviconmanager</element>
+        <type>plugin</type>
+        <folder>system</folder>
+        <client>site</client>
+        <version>1.16.1</version>
+        <infourl title="FG Favicon Manager">https://github.com/FGcodework/plg_system_fgfaviconmanager</infourl>
+        <downloads>
+            <downloadurl type="full" format="zip">https://github.com/FGcodework/plg_system_fgfaviconmanager/releases/download/v1.16.1/plg_system_fgfaviconmanager_v1.16.1.zip</downloadurl>
+        </downloads>
+        <tags>
+            <tag>stable</tag>
+        </tags>
+        <maintainer>Fero</maintainer>
+        <maintainerurl>https://github.com/FGcodework</maintainerurl>
+        <targetplatform name="joomla" version="6\..*"/>
+        <php_minimum>8.3</php_minimum>
+    </update>
+</updates>
