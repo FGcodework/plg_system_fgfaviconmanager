@@ -1,3 +1,5 @@
+<img src="assets/logo.png" alt="FG Favicon Manager" width="128" align="right">
+
 # FG Favicon Manager
 
 [![Joomla](https://img.shields.io/badge/Joomla-6.x-1a3867?logo=joomla&logoColor=white)](https://www.joomla.org)
@@ -5,8 +7,6 @@
 [![Version](https://img.shields.io/github/v/release/FGcodework/plg_system_fgfaviconmanager?color=ff6b4a)](https://github.com/FGcodework/plg_system_fgfaviconmanager/releases)
 [![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/FGcodework)
-
-<img src="assets/logo.png" alt="FG Favicon Manager" width="128" align="right">
 
 Native **Joomla 6** system plugin that replaces the favicon of your site (and optionally of the administrator) with icons generated automatically from **one source image** - no template editing.
 
