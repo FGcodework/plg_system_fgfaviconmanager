@@ -270,4 +270,126 @@ final class FgfaviconmanagerTest extends TestCase
         self::assertCount(1, $svg);
         self::assertStringNotContainsString('media=', $svg[0]);
     }
+
+    // --- ensureManifest(): atomic, self-healing manifest writes -----------------------------
+
+    /** Calls the real ensureManifest() and returns [url, absolute file path]. */
+    private function runEnsureManifest(string $cacheFs, array $params = []): array
+    {
+        $paramsObj = new class ($params) {
+            public function __construct(private array $data)
+            {
+            }
+
+            public function get(string $key, $default = null)
+            {
+                return $this->data[$key] ?? $default;
+            }
+        };
+
+        $plugin = (new ReflectionClass(Fgfaviconmanager::class))->newInstanceWithoutConstructor();
+        $prop   = new \ReflectionProperty(\Joomla\CMS\Plugin\CMSPlugin::class, 'params');
+        $prop->setAccessible(true);
+        $prop->setValue($plugin, $paramsObj);
+
+        $mainSet = [
+            'hash' => 'abc12345-def67890',
+            'png'  => [16 => '/c/icon-16.png', 32 => '/c/icon-32.png', 192 => '/c/icon-192.png', 512 => '/c/icon-512.png'],
+        ];
+
+        $ref = new ReflectionMethod(Fgfaviconmanager::class, 'ensureManifest');
+        $ref->setAccessible(true);
+        $url = $ref->invoke($plugin, $mainSet, $cacheFs, '/cache', '#336699', null);
+
+        return [$url, $url !== null ? $cacheFs . '/' . $mainSet['hash'] . '/' . basename($url) : null];
+    }
+
+    private function manifestCacheDir(): string
+    {
+        $dir = sys_get_temp_dir() . '/fgfm_manifest_' . bin2hex(random_bytes(4));
+        mkdir($dir, 0755, true);
+
+        return $dir;
+    }
+
+    public function testManifestIsWrittenCompleteWithoutTempLeftovers(): void
+    {
+        $cache = $this->manifestCacheDir();
+
+        [$url, $file] = $this->runEnsureManifest($cache);
+
+        self::assertNotNull($url);
+        self::assertIsArray(json_decode((string) file_get_contents($file), true));
+        self::assertSame('manifest-' . substr(md5((string) file_get_contents($file)), 0, 12) . '.webmanifest', basename($file));
+        self::assertSame([basename($file)], array_map('basename', glob(\dirname($file) . '/{,.}*[!.]', GLOB_BRACE) ?: []), 'only the manifest, no .tmp files');
+
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
+    }
+
+    public function testTruncatedManifestWithTheRightNameIsRepaired(): void
+    {
+        $cache = $this->manifestCacheDir();
+
+        [, $file] = $this->runEnsureManifest($cache);
+        $good = (string) file_get_contents($file);
+
+        file_put_contents($file, substr($good, 0, 40));          // simulated partial write
+
+        $this->runEnsureManifest($cache);
+
+        self::assertSame($good, file_get_contents($file), 'a truncated manifest must be rewritten');
+
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
+    }
+
+    public function testZeroByteManifestIsRepaired(): void
+    {
+        $cache = $this->manifestCacheDir();
+
+        [, $file] = $this->runEnsureManifest($cache);
+        $good = (string) file_get_contents($file);
+
+        file_put_contents($file, '');
+
+        $this->runEnsureManifest($cache);
+
+        self::assertSame($good, file_get_contents($file));
+
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
+    }
+
+    public function testSameSizeCorruptedManifestIsRepaired(): void
+    {
+        $cache = $this->manifestCacheDir();
+
+        [, $file] = $this->runEnsureManifest($cache);
+        $good = (string) file_get_contents($file);
+
+        file_put_contents($file, str_repeat('x', \strlen($good)));    // right length, wrong bytes
+
+        $this->runEnsureManifest($cache);
+
+        self::assertSame($good, file_get_contents($file));
+
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
+    }
+
+    public function testIntactManifestIsNotRewritten(): void
+    {
+        $cache = $this->manifestCacheDir();
+
+        [, $file] = $this->runEnsureManifest($cache);
+        $before = (string) file_get_contents($file);
+        touch($file, 1700000000);
+        clearstatcache();
+
+        [, $again] = $this->runEnsureManifest($cache);
+        clearstatcache();
+
+        self::assertSame($file, $again);
+        self::assertSame($before, file_get_contents($file));
+        self::assertSame(1700000000, filemtime($file), 'an intact manifest is left alone');
+
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
+    }
 }

@@ -372,13 +372,52 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
             return;
         }
 
-        $tmp = $file . '.tmp-' . mt_rand(100000, 999999);
+        $this->writeFileAtomic($file, $json);
+    }
 
-        if (@file_put_contents($tmp, $json) !== false) {
-            @rename($tmp, $file);
-        } else {
-            @unlink($tmp);
+    /**
+     * Writes $data to $file so that no reader ever sees a partial file: the full content
+     * goes to a uniquely named temp file in the same folder (same filesystem, so rename()
+     * is atomic), the number of bytes written is verified, and only then is it renamed
+     * onto the final name. Any failure removes the temp file and returns false.
+     *
+     * @since  1.16.6
+     */
+    private function writeFileAtomic(string $file, string $data): bool
+    {
+        try {
+            $suffix = bin2hex(random_bytes(4));
+        } catch (\Throwable $e) {
+            $suffix = (string) mt_rand(100000, 999999);
         }
+
+        // Dot-prefixed + non-matching extension: never picked up by the manifest-*.webmanifest glob.
+        $tmp = \dirname($file) . '/.tmp-' . $suffix . '-' . basename($file);
+
+        $written = @file_put_contents($tmp, $data);
+
+        if ($written === false || $written !== \strlen($data) || !@rename($tmp, $file)) {
+            @unlink($tmp);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * True when $file exists and its content is byte-for-byte the expected $json.
+     * Size is compared first (one stat), the hash only when the sizes match.
+     *
+     * @since  1.16.6
+     */
+    private function isManifestIntact(string $file, string $json): bool
+    {
+        if (!is_file($file) || filesize($file) !== \strlen($json)) {
+            return false;
+        }
+
+        return md5_file($file) === md5($json);
     }
 
     /**
@@ -1235,12 +1274,15 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $fileName = 'manifest-' . substr(md5($json), 0, 12) . '.webmanifest';
         $file     = $dirFs . '/' . $fileName;
 
-        if (!is_file($file)) {
+        // The file name is a hash of the content, so "exists" is not enough: a file left
+        // behind by a crashed or disk-full write has the right name and wrong content and
+        // would otherwise be served forever. Re-publish unless the bytes match exactly.
+        if (!$this->isManifestIntact($file, $json)) {
             if (!is_dir($dirFs) && !IconGenerator::makeDir($dirFs)) {
                 return null;
             }
 
-            if (!@file_put_contents($file, $json)) {
+            if (!$this->writeFileAtomic($file, $json)) {
                 return null;
             }
 

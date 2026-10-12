@@ -1,5 +1,12 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.16.6 (2026-10-13)
+- **PWA manifest is now written atomically and self-heals.** `ensureManifest()` wrote the manifest straight into its final file and treated "file exists" as "file is valid". Because the file name is a hash of the content, a partial or zero-byte file left by a concurrent request, a crash or a full disk had the correct name and was served indefinitely. Now:
+  - the whole JSON is written to a uniquely named temp file in the same folder, the number of bytes written is verified, and only then it is `rename()`d onto the final name (new `writeFileAtomic()`; a failure removes the temp file and the manifest link is simply omitted for that request);
+  - an existing manifest is accepted only if it matches the expected content byte for byte (size first, hash only if the size matches, `isManifestIntact()`); a truncated, empty or corrupted file is rewritten on the next request.
+- The markup cache file (`markup-*.json`) uses the same helper, so its write now also verifies the byte count.
+- 5 new unit tests running the real `ensureManifest()` (truncated, zero-byte and same-size-corrupted manifests are repaired - these 3 failed before the fix; an intact manifest is not rewritten; no temp leftovers): 60/60 pass.
+
 ## 1.16.5 (2026-10-13)
 - **Cache publishing no longer replaces an already complete folder under concurrent requests.** `publishBuild()` swapped any existing final folder out to `.old-*` before moving the new staging folder in. When two requests generated the same version at once, the slower one threw away the complete set the faster one had just published, and between the two `rename()` calls the final icon URLs returned 404. `publishBuild()` now takes a completeness check and re-validates the existing folder at publish time: if it is already complete, the new staging copy is discarded and the existing folder is left untouched. The swap is used only for a missing/zero-byte/damaged set. Wired up for all five publish sites (raster, SVG, maskable x2, splash).
 - Measured: 8 parallel processes generating the same icon set while a poller watched for the published files (6 rounds): the previous code lost the published folder 441-931 times per round (3669 polls total) after it first appeared, the new code 0.
