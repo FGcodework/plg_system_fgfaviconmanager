@@ -208,4 +208,66 @@ final class FgfaviconmanagerTest extends TestCase
 
         self::assertSame($this->markupKey($params), $this->markupKey($params));
     }
+
+    // --- buildHeadMarkup(): light/dark scoping of SVG icons ---------------------------------
+
+    /** Runs the real buildHeadMarkup() against fixture files and returns the <link>/<meta> lines. */
+    private function headLines(array $params): array
+    {
+        $paramsObj = new class ($params) {
+            public function __construct(private array $data)
+            {
+            }
+
+            public function get(string $key, $default = null)
+            {
+                return $this->data[$key] ?? $default;
+            }
+        };
+
+        $plugin = (new ReflectionClass(Fgfaviconmanager::class))->newInstanceWithoutConstructor();
+        $prop   = new \ReflectionProperty(\Joomla\CMS\Plugin\CMSPlugin::class, 'params');
+        $prop->setAccessible(true);
+        $prop->setValue($plugin, $paramsObj);
+
+        $ref = new ReflectionMethod(Fgfaviconmanager::class, 'buildHeadMarkup');
+        $ref->setAccessible(true);
+
+        return array_values(array_filter(explode("\n", (string) $ref->invoke($plugin, false, false))));
+    }
+
+    private function svgFixtures(): void
+    {
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#fff"/></svg>';
+        file_put_contents(JPATH_ROOT . '/images/light.svg', $svg);
+        file_put_contents(JPATH_ROOT . '/images/dark.svg', str_replace('#fff', '#000', $svg));
+    }
+
+    public function testLightSvgIsRestrictedToLightSchemeWhenADarkVariantExists(): void
+    {
+        $this->svgFixtures();
+
+        $lines = $this->headLines(['favicon_source' => 'images/light.svg', 'favicon_dark_source' => 'images/dark.svg']);
+        $svg   = array_values(array_filter($lines, static fn ($l) => str_contains($l, 'image/svg+xml')));
+
+        self::assertCount(2, $svg, 'one light and one dark SVG link');
+
+        $light = array_values(array_filter($svg, static fn ($l) => !str_contains($l, 'dark')));
+        $dark  = array_values(array_filter($svg, static fn ($l) => str_contains($l, 'media="(prefers-color-scheme: dark)"')));
+
+        self::assertCount(1, $light);
+        self::assertStringContainsString('media="(prefers-color-scheme: light)"', $light[0]);
+        self::assertCount(1, $dark);
+    }
+
+    public function testLightSvgHasNoMediaAttributeWithoutADarkVariant(): void
+    {
+        $this->svgFixtures();
+
+        $lines = $this->headLines(['favicon_source' => 'images/light.svg']);
+        $svg   = array_values(array_filter($lines, static fn ($l) => str_contains($l, 'image/svg+xml')));
+
+        self::assertCount(1, $svg);
+        self::assertStringNotContainsString('media=', $svg[0]);
+    }
 }

@@ -55,6 +55,12 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     private const CACHE_RELATIVE = 'media/plg_system_fgfaviconmanager/cache';
 
     /**
+     * Bump whenever buildHeadMarkup() changes its OUTPUT for unchanged settings, so markup
+     * cached by an older plugin version is never served after an update.
+     */
+    private const MARKUP_FORMAT = 2;
+
+    /**
      * @return  array<string, string>
      *
      * @since   1.0.0
@@ -252,7 +258,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
 
         $app = $this->getApplication();
 
-        $bits   = [$isAdmin ? 'admin' : 'site', 'foreignManifest=' . ($foreignManifest ? '1' : '0')];
+        $bits   = ['format=' . self::MARKUP_FORMAT, $isAdmin ? 'admin' : 'site', 'foreignManifest=' . ($foreignManifest ? '1' : '0')];
         $bits[] = 'sitename=' . ($app !== null ? (string) $app->get('sitename', '') : '');
 
         // The cached markup embeds absolute/root-relative icon URLs and (via the manifest)
@@ -972,13 +978,17 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $darkSet = $darkSet !== null ? $generator->process($darkSet, $cacheFs, $cacheUrl) : null;
 
         if ($mainSet['type'] === 'svg') {
-            $lines[] = '<link rel="icon" type="image/svg+xml" href="' . htmlspecialchars($mainSet['svg']) . '">';
+            // With a dark variant present, the light SVG must be restricted to the light
+            // scheme too - otherwise both SVGs are eligible in a dark theme and the browser
+            // is free to pick the wrong one. Applies with or without PNG/ICO fallbacks.
+            $mediaLight = $darkSet ? ' media="(prefers-color-scheme: light)"' : '';
+
+            $lines[] = '<link rel="icon" type="image/svg+xml"' . $mediaLight
+                . ' href="' . htmlspecialchars($mainSet['svg']) . '">';
 
             // Additive PNG/ICO fallback for browsers without SVG favicon support,
             // only present when Imagick successfully rasterised the SVG.
             if (isset($mainSet['png'], $mainSet['ico'])) {
-                $mediaLight = $darkSet ? ' media="(prefers-color-scheme: light)"' : '';
-
                 $lines[] = '<link rel="icon" href="' . htmlspecialchars($mainSet['ico']) . '"' . $mediaLight . '>';
 
                 foreach ($mainSet['png'] as $size => $url) {

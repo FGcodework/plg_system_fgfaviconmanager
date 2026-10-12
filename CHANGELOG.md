@@ -1,5 +1,10 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.16.4 (2026-10-13)
+- **Fixed light SVG not being scoped to the light color scheme when a dark variant is configured.** Raster icons already got `media="(prefers-color-scheme: light)"` next to a dark variant, but an SVG main source was emitted without `media`. In a dark theme both SVG icons were then eligible and the browser could pick the light one. The light SVG link now carries `media="(prefers-color-scheme: light)"` whenever a dark variant exists, with or without PNG/ICO fallbacks; without a dark variant no `media` attribute is added.
+- Isolated change in `buildHeadMarkup()`: image generator and icon cache format are untouched. The markup cache key now carries a `MARKUP_FORMAT` number (bumped to 2), so markup cached by an older version is dropped automatically after the update - no manual "Clear Icon Cache" needed. Bump it whenever the markup output changes for unchanged settings.
+- 2 new unit tests running the real `buildHeadMarkup()` against SVG fixtures (the dark-variant test failed before the fix): 51/51 pass.
+
 ## 1.16.3 (2026-10-13)
 - **Fixed incomplete HTML markup cache key** (`computeMarkupCacheKey()`). The key was built from each source image's mtime and size only, so switching a slot (favicon, dark favicon, admin favicon, Apple touch icon) from file A to file B could keep the same key when both files shared size and mtime, and the plugin then served the cached `<link>`/`<meta>` markup with icon URLs generated from file A. The key now includes the resolved path of every source.
 - The key also includes `Uri::root()` and `Uri::root(true)`, so moving the site to another domain or into/out of a subfolder no longer serves cached markup with old icon URLs or an old manifest `id` / `start_url` / `scope`. (The manifest file itself is content-hashed, so a new file was already generated; only the cached markup could point at the old one.)
