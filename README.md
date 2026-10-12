@@ -46,7 +46,7 @@ Everything else is optional and has sensible defaults. Updates arrive through Jo
 
 - Joomla 5.x or 6.x, PHP 8.1+
 - GD or Imagick
-- For SVG sources: Imagick with the `rsvg-convert` binary (Debian/Ubuntu: `apt install librsvg2-bin`)
+- For rasterising SVG sources (PNG/ICO/Apple fallbacks): Imagick with the `rsvg-convert` binary (Debian/Ubuntu: `apt install librsvg2-bin`) and the PHP DOM extension, which safety-checks the SVG first. Without them an SVG is still published as the vector icon, just without fallbacks.
 
 ## Plugin settings
 
@@ -72,7 +72,7 @@ composer install        # or: apt install phpunit
 vendor/bin/phpunit
 ```
 
-60 PHPUnit tests cover path resolution, contain-fit sizing, color normalisation, the SVG safety scan, the filesystem helpers, the markup cache key light/dark SVG scoping, cache publishing and manifest writes. `tests/`, `phpunit.xml.dist` and `composer.json` are not part of the install ZIP.
+63 PHPUnit tests cover path resolution, contain-fit sizing, color normalisation, the SVG safety scan, the filesystem helpers, the markup cache key light/dark SVG scoping, cache publishing and manifest writes. `tests/`, `phpunit.xml.dist` and `composer.json` are not part of the install ZIP.
 
 ## Support this project
 

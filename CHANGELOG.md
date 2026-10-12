@@ -1,5 +1,11 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.16.7 (2026-10-13)
+- **SVG safety pre-scan now fails closed when `ext-dom` is missing.** Previously, without the PHP DOM extension the plugin fell back to a raw-byte regex that cannot see URL schemes hidden in XML character references and does not inspect CSS, so the safety policy silently depended on an extension being installed. The regex fallback is removed: without `ext-dom` an SVG is not rasterised at all (nothing untrusted reaches ImageMagick or its SVG delegate), the vector icon is still published, only the PNG/ICO/Apple fallbacks are skipped, and the reason is recorded for Debug Mode.
+- `isSvgSafeToRasterize()` asks a new overridable `domAvailable()`, so the fail-closed path is covered by tests without uninstalling the extension.
+- README and the Info tab (en-GB, sk-SK) now list the PHP DOM extension next to Imagick/rsvg-convert as a requirement for SVG fallbacks.
+- 3 new unit tests (benign SVG accepted with DOM; benign SVG rejected without DOM with an `ext-dom` error recorded - failed before the change; obfuscated `&#104;ttp://` scheme still rejected): 63/63 pass. Not verified on a server with Imagick in this environment, only the pre-scan decision itself.
+
 ## 1.16.6 (2026-10-13)
 - **PWA manifest is now written atomically and self-heals.** `ensureManifest()` wrote the manifest straight into its final file and treated "file exists" as "file is valid". Because the file name is a hash of the content, a partial or zero-byte file left by a concurrent request, a crash or a full disk had the correct name and was served indefinitely. Now:
   - the whole JSON is written to a uniquely named temp file in the same folder, the number of bytes written is verified, and only then it is `rename()`d onto the final name (new `writeFileAtomic()`; a failure removes the temp file and the manifest link is simply omitted for that request);

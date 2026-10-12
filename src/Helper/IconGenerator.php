@@ -268,18 +268,32 @@ class IconGenerator
             return false;
         }
 
-        // DOMDocument is preferred: unlike a regex scan of the raw bytes, the parser
-        // actually resolves character references as part of normal XML parsing (so
-        // href="&#104;ttp://evil" reads back as "http://evil" - a regex over raw bytes
-        // never sees the decoded form), and it lets us reason about actual elements and
-        // attributes instead of pattern-matching text. Falls back to the older regex
-        // heuristic only if ext-dom is somehow unavailable (rare - practically always
-        // bundled with PHP), so the pre-scan still degrades rather than disappearing.
-        if (\class_exists(\DOMDocument::class)) {
-            return $this->isSvgSafeViaDom($data);
+        // The check needs a real XML parser: unlike a regex over the raw bytes, it resolves
+        // character references (href="&#104;ttp://evil" reads back as "http://evil") and lets
+        // us reason about actual elements, attributes and CSS. There is deliberately NO
+        // weaker fallback: a regex heuristic can never give the same assurance, and this
+        // input is about to be handed to ImageMagick and its SVG delegate. Without ext-dom
+        // the SVG is not rasterised at all - the vector icon is still published, only the
+        // PNG/ICO/Apple fallbacks are skipped.
+        if (!$this->domAvailable()) {
+            $this->errors[] = 'PHP DOM extension (ext-dom) is not available, so the SVG cannot be '
+                . 'safety-checked and is not rasterised - vector icon still published';
+
+            return false;
         }
 
-        return $this->isSvgSafeViaRegex($data);
+        return $this->isSvgSafeViaDom($data);
+    }
+
+    /**
+     * Whether the PHP DOM extension is usable. Separate method so the fail-closed path can
+     * be exercised in tests without uninstalling the extension.
+     *
+     * @since  1.16.7
+     */
+    protected function domAvailable(): bool
+    {
+        return \class_exists(\DOMDocument::class);
     }
 
     /**
@@ -411,32 +425,6 @@ class IconGenerator
         }
 
         return (bool) preg_match('#@import\b#i', $css);
-    }
-
-    /**
-     * Original raw-byte regex heuristic, kept only as a fallback for the (rare) case
-     * ext-dom is unavailable. Known to be less precise than isSvgSafeViaDom() - notably
-     * it cannot see through numeric/named character-reference obfuscation of a URL scheme
-     * (href="&#104;ttp://...") and does not inspect CSS - which is exactly why the DOM
-     * path is preferred whenever available.
-     *
-     * @since  1.13.0
-     */
-    private function isSvgSafeViaRegex(string $data): bool
-    {
-        if (stripos($data, '<!ENTITY') !== false) {
-            return false;
-        }
-
-        if (preg_match('#(?:xlink:)?href\s*=\s*["\']?\s*(?:https?:|ftp:|file:|//)#i', $data)) {
-            return false;
-        }
-
-        if (preg_match('#<\s*(?:script|foreignObject|iframe)\b#i', $data)) {
-            return false;
-        }
-
-        return true;
     }
 
     /**
@@ -1357,7 +1345,7 @@ class IconGenerator
         if (!$this->isSvgSafeToRasterize($svgFilePath)) {
             $this->errors[] = 'SVG rejected by safety pre-scan (a DOCTYPE, an external '
                 . 'reference in href/CSS, an inline event handler, script/foreignObject/iframe/'
-                . 'embed/object/audio/video, or over 2 MB) - vector icon still published';
+                . 'embed/object/audio/video, or over 2 MB; or ext-dom missing) - vector icon still published';
 
             return null;
         }

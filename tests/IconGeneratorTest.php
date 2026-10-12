@@ -419,4 +419,39 @@ final class IconGeneratorTest extends TestCase
 
         IconGenerator::removeTree($root);
     }
+
+    // --- SVG pre-scan fails closed without ext-dom ------------------------------------------
+
+    public function testBenignSvgIsAcceptedWhenDomIsAvailable(): void
+    {
+        $path = $this->svgFixture('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>');
+
+        self::assertTrue($this->callPrivate('isSvgSafeToRasterize', [$path]));
+    }
+
+    public function testSvgIsRejectedWithoutDomEvenWhenBenign(): void
+    {
+        $noDom = new class () extends IconGenerator {
+            protected function domAvailable(): bool
+            {
+                return false;
+            }
+        };
+
+        $path = $this->svgFixture('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>');
+
+        $ref = new ReflectionMethod(IconGenerator::class, 'isSvgSafeToRasterize');
+        $ref->setAccessible(true);
+
+        self::assertFalse($ref->invoke($noDom, $path), 'no XML parser -> no rasterisation of untrusted SVG');
+        self::assertNotEmpty($noDom->getErrors());
+        self::assertStringContainsString('ext-dom', implode(' ', $noDom->getErrors()));
+    }
+
+    public function testObfuscatedSchemeSvgStillRejectedWithDom(): void
+    {
+        $path = $this->svgFixture('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="&#104;ttp://evil.test/x.png"/></svg>');
+
+        self::assertFalse($this->callPrivate('isSvgSafeToRasterize', [$path]));
+    }
 }
