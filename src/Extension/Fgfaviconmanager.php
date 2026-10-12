@@ -11,7 +11,6 @@
 namespace FG\Plugin\System\Fgfaviconmanager\Extension;
 
 use Joomla\CMS\Event\Result\ResultAwareInterface;
-use Joomla\CMS\Filesystem\Folder;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
@@ -332,7 +331,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $file = $this->markupCacheFile($isAdmin);
         $dir  = \dirname($file);
 
-        if (!is_dir($dir) && !Folder::create($dir)) {
+        if (!is_dir($dir) && !IconGenerator::makeDir($dir)) {
             return;
         }
 
@@ -595,7 +594,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
 
             try {
                 if ($entry->isDir()) {
-                    if (Folder::delete($path)) {
+                    if (IconGenerator::removeTree($path)) {
                         $removed++;
                     }
                 } elseif (@unlink($path)) {
@@ -763,7 +762,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $cacheUrl = rtrim(Uri::root(true), '/') . '/' . self::CACHE_RELATIVE;
 
         if (!is_dir($cacheFs)) {
-            Folder::create($cacheFs);
+            IconGenerator::makeDir($cacheFs);
         }
 
         $background = (string) ($params['apple_splash_background'] ?? '#ffffff');
@@ -899,7 +898,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $cacheUrl = rtrim(Uri::root(true), '/') . '/' . self::CACHE_RELATIVE;
 
         if (!is_dir($cacheFs)) {
-            Folder::create($cacheFs);
+            IconGenerator::makeDir($cacheFs);
         }
 
         $generator       = new IconGenerator();
@@ -1217,7 +1216,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $file     = $dirFs . '/' . $fileName;
 
         if (!is_file($file)) {
-            if (!is_dir($dirFs) && !Folder::create($dirFs)) {
+            if (!is_dir($dirFs) && !IconGenerator::makeDir($dirFs)) {
                 return null;
             }
 

@@ -296,4 +296,46 @@ final class IconGeneratorTest extends TestCase
         $path = $this->svgFixture('<svg xmlns="http://www.w3.org/2000/svg">' . str_repeat(' ', 3 * 1024 * 1024) . '</svg>');
         self::assertFalse($this->callPrivate('isSvgSafeToRasterize', [$path]));
     }
+
+    // --- makeDir() / removeTree(): plain-PHP replacements for the deprecated Folder class ----
+
+    public function testMakeDirCreatesNestedFolderAndIsIdempotent(): void
+    {
+        $base = sys_get_temp_dir() . '/fgfm_dir_' . bin2hex(random_bytes(4));
+        $dir  = $base . '/a/b/c';
+
+        self::assertTrue(IconGenerator::makeDir($dir));
+        self::assertDirectoryExists($dir);
+        self::assertTrue(IconGenerator::makeDir($dir), 'an already existing folder counts as success');
+
+        IconGenerator::removeTree($base);
+    }
+
+    public function testMakeDirFailsWhenAFileBlocksThePath(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'fgfm_file_');
+        self::assertFalse(IconGenerator::makeDir($file . '/sub'));
+        unlink($file);
+    }
+
+    public function testRemoveTreeDeletesRecursivelyButNeverFollowsSymlinks(): void
+    {
+        $base    = sys_get_temp_dir() . '/fgfm_rm_' . bin2hex(random_bytes(4));
+        $outside = $base . '/outside';
+        $victim  = $base . '/victim';
+
+        mkdir($outside . '/keep', 0755, true);
+        file_put_contents($outside . '/keep/precious.txt', 'x');
+        mkdir($victim . '/sub', 0755, true);
+        file_put_contents($victim . '/sub/f.png', 'x');
+        file_put_contents($victim . '/.hidden', 'x');
+        symlink($outside, $victim . '/link');
+
+        self::assertTrue(IconGenerator::removeTree($victim));
+        self::assertDirectoryDoesNotExist($victim);
+        self::assertFileExists($outside . '/keep/precious.txt', 'symlink target must survive');
+
+        IconGenerator::removeTree($base);
+        self::assertFalse(IconGenerator::removeTree($base . '/nope'), 'missing folder returns false');
+    }
 }

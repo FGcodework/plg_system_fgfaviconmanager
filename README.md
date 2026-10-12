@@ -1,14 +1,14 @@
-<img src="assets/logo.png" alt="FG Favicon Manager" width="128" align="right">
-
 # FG Favicon Manager
 
-[![Joomla](https://img.shields.io/badge/Joomla-6.x-1a3867?logo=joomla&logoColor=white)](https://www.joomla.org)
-[![PHP](https://img.shields.io/badge/PHP-8.3%2B-777bb4?logo=php&logoColor=white)](https://www.php.net)
+[![Joomla](https://img.shields.io/badge/Joomla-5.x%20%7C%206.x-1a3867?logo=joomla&logoColor=white)](https://www.joomla.org)
+[![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4?logo=php&logoColor=white)](https://www.php.net)
 [![Version](https://img.shields.io/github/v/release/FGcodework/plg_system_fgfaviconmanager?color=ff6b4a)](https://github.com/FGcodework/plg_system_fgfaviconmanager/releases)
 [![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/FGcodework)
 
-Native **Joomla 6** system plugin that replaces the favicon of your site (and optionally of the administrator) with icons generated automatically from **one source image** - no template editing.
+<img src="assets/logo.png" alt="FG Favicon Manager" width="128" align="right">
+
+Native **Joomla 5 / 6** system plugin that replaces the favicon of your site (and optionally of the administrator) with icons generated automatically from **one source image** - no template editing.
 
 ## Features
 
@@ -25,7 +25,7 @@ Native **Joomla 6** system plugin that replaces the favicon of your site (and op
 
 ## Requirements
 
-Joomla 6.x, PHP 8.3+, GD or Imagick. SVG sources need Imagick with the `rsvg-convert` binary (Debian/Ubuntu: `librsvg2-bin`).
+Joomla 5.x or 6.x, PHP 8.1+, GD or Imagick. SVG sources need Imagick with the `rsvg-convert` binary (Debian/Ubuntu: `librsvg2-bin`).
 
 ## Installation
 

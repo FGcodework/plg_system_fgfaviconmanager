@@ -1,5 +1,10 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.16.2 (2026-10-12)
+- **Joomla 5 support.** The plugin now installs and updates on Joomla 5.x as well as 6.x: `updates.xml` target platform is `[56]\..*` and the minimum PHP is 8.1 (the Joomla 5 minimum). The code itself only uses APIs available in both versions; the J6-only restriction was purely in the update metadata.
+- Replaced the deprecated `Joomla\CMS\Filesystem\Folder` (scheduled for removal in Joomla 7) with plain PHP: new `IconGenerator::makeDir()` and `IconGenerator::removeTree()` (symlinks are unlinked, never followed). Behaviour is unchanged.
+- 3 new unit tests (nested/idempotent create, blocked path, recursive delete that does not follow symlinks): 44/44 pass. Icon generation + cache build re-checked end to end with GD.
+
 ## 1.16.1 (2026-10-12)
 - Initial public repository release (first version published on GitHub; 1.16.0 was the internal rename build).
 - Added the FG series "Plugin" tab: unlabeled `basic` fieldset containing only the Ko-fi / fgcodework.github.io support note; the former first tab (favicon source + theme color) is now the labelled `settings` fieldset "Frontend Favicon".

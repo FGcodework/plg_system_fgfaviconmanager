@@ -10,7 +10,6 @@
 
 namespace FG\Plugin\System\Fgfaviconmanager\Helper;
 
-use Joomla\CMS\Filesystem\Folder;
 
 defined('_JEXEC') or die;
 
@@ -147,6 +146,49 @@ class IconGenerator
     public function getErrors(): array
     {
         return $this->errors;
+    }
+
+    /**
+     * Creates a folder (recursively) with plain PHP, so the plugin does not depend on the
+     * deprecated Joomla\CMS\Filesystem\Folder class (scheduled for removal in Joomla 7).
+     * Returns true when the folder exists afterwards, including when a concurrent request
+     * created it first.
+     */
+    public static function makeDir(string $dir): bool
+    {
+        return is_dir($dir) || @mkdir($dir, 0755, true) || is_dir($dir);
+    }
+
+    /**
+     * Recursively deletes a folder with plain PHP. Symlinks are unlinked, never followed.
+     */
+    public static function removeTree(string $dir): bool
+    {
+        if (is_link($dir) || !is_dir($dir)) {
+            return is_link($dir) ? @unlink($dir) : false;
+        }
+
+        $items = scandir($dir);
+
+        if ($items === false) {
+            return false;
+        }
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+
+            if (is_dir($path) && !is_link($path)) {
+                self::removeTree($path);
+            } else {
+                @unlink($path);
+            }
+        }
+
+        return @rmdir($dir);
     }
 
     /**
@@ -490,7 +532,7 @@ class IconGenerator
 
         $this->clearLastError();
 
-        if (!Folder::create($tmp)) {
+        if (!self::makeDir($tmp)) {
             $this->recordError('cannot create cache folder in ' . $cacheRootFs . ' (check write permissions)');
 
             return null;
@@ -559,7 +601,7 @@ class IconGenerator
     private function discardBuild(string $dir): void
     {
         try {
-            Folder::delete($dir);
+            self::removeTree($dir);
         } catch (\Throwable $e) {
             // Best effort only.
         }
@@ -848,7 +890,7 @@ class IconGenerator
             }
 
             try {
-                Folder::delete($dir);
+                self::removeTree($dir);
             } catch (\Throwable $e) {
                 // Cache cleanup is best-effort; never let it break icon delivery.
             }
