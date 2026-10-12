@@ -549,9 +549,20 @@ class IconGenerator
      * folder of the same name (renaming onto a non-empty directory fails on POSIX, so the
      * old one is swapped out first and removed afterwards).
      *
+     * $isComplete re-checks the EXISTING final folder at publish time: callers decided to
+     * build because the cache looked incomplete, but a concurrent request may have
+     * published a complete set while this one was generating. Swapping that one out would
+     * discard good work and open a short window where its URLs return 404 (between the
+     * two rename() calls), so a complete existing folder is kept and our staging copy is
+     * dropped. The swap is only used for a genuinely incomplete or damaged folder.
+     *
+     * @param   string         $tmp         Completed staging folder.
+     * @param   string         $finalDir    Final cache folder.
+     * @param   callable|null  $isComplete  fn(string $dir): bool - true if $dir is a usable set.
+     *
      * @since  1.5.0
      */
-    private function publishBuild(string $tmp, string $finalDir): bool
+    private function publishBuild(string $tmp, string $finalDir, ?callable $isComplete = null): bool
     {
         if (!is_dir($finalDir)) {
             if (@rename($tmp, $finalDir)) {
@@ -568,6 +579,12 @@ class IconGenerator
             $this->discardBuild($tmp);
 
             return false;
+        }
+
+        if ($isComplete !== null && $isComplete($finalDir)) {
+            $this->discardBuild($tmp);
+
+            return true;
         }
 
         // Replace an existing (stale or incomplete) folder, keeping the window in which
@@ -748,7 +765,7 @@ class IconGenerator
             return null;
         }
 
-        if (!$this->publishBuild($tmp, $dirFs)) {
+        if (!$this->publishBuild($tmp, $dirFs, fn (string $dir): bool => $this->hasCompleteFileSet($dir, array_column($specs, 'file')))) {
             return null;
         }
 
@@ -966,7 +983,7 @@ class IconGenerator
                 return null;
             }
 
-            if (!$this->publishBuild($tmp, $dirFs)) {
+            if (!$this->publishBuild($tmp, $dirFs, fn (string $dir): bool => $this->hasCompleteMaskableCache($dir))) {
                 return null;
             }
 
@@ -994,7 +1011,7 @@ class IconGenerator
             return null;
         }
 
-        if (!$this->publishBuild($tmp, $dirFs)) {
+        if (!$this->publishBuild($tmp, $dirFs, fn (string $dir): bool => $this->hasCompleteMaskableCache($dir))) {
             return null;
         }
 
@@ -1297,7 +1314,7 @@ class IconGenerator
             // Failure here is tolerated - we still publish the vector-only folder.
             $this->rasterizeSvgFallback($tmp . '/icon.svg', $tmp, $dirUrl);
 
-            if (!$this->publishBuild($tmp, $dirFs)) {
+            if (!$this->publishBuild($tmp, $dirFs, static fn (string $dir): bool => is_file($dir . '/icon.svg') && filesize($dir . '/icon.svg') > 0)) {
                 return null;
             }
         }
@@ -1467,7 +1484,7 @@ class IconGenerator
                 return null;
             }
 
-            if (!$this->publishBuild($tmp, $dirFs)) {
+            if (!$this->publishBuild($tmp, $dirFs, fn (string $dir): bool => $this->hasCompleteRasterCache($dir))) {
                 return null;
             }
         }

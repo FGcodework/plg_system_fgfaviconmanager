@@ -1,5 +1,10 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.16.5 (2026-10-13)
+- **Cache publishing no longer replaces an already complete folder under concurrent requests.** `publishBuild()` swapped any existing final folder out to `.old-*` before moving the new staging folder in. When two requests generated the same version at once, the slower one threw away the complete set the faster one had just published, and between the two `rename()` calls the final icon URLs returned 404. `publishBuild()` now takes a completeness check and re-validates the existing folder at publish time: if it is already complete, the new staging copy is discarded and the existing folder is left untouched. The swap is used only for a missing/zero-byte/damaged set. Wired up for all five publish sites (raster, SVG, maskable x2, splash).
+- Measured: 8 parallel processes generating the same icon set while a poller watched for the published files (6 rounds): the previous code lost the published folder 441-931 times per round (3669 polls total) after it first appeared, the new code 0.
+- 4 new unit tests (complete folder kept and not renamed, incomplete folder replaced, no-check legacy behaviour, publish into empty slot): 55/55 pass.
+
 ## 1.16.4 (2026-10-13)
 - **Fixed light SVG not being scoped to the light color scheme when a dark variant is configured.** Raster icons already got `media="(prefers-color-scheme: light)"` next to a dark variant, but an SVG main source was emitted without `media`. In a dark theme both SVG icons were then eligible and the browser could pick the light one. The light SVG link now carries `media="(prefers-color-scheme: light)"` whenever a dark variant exists, with or without PNG/ICO fallbacks; without a dark variant no `media` attribute is added.
 - Isolated change in `buildHeadMarkup()`: image generator and icon cache format are untouched. The markup cache key now carries a `MARKUP_FORMAT` number (bumped to 2), so markup cached by an older version is dropped automatically after the update - no manual "Clear Icon Cache" needed. Bump it whenever the markup output changes for unchanged settings.

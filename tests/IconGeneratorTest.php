@@ -338,4 +338,85 @@ final class IconGeneratorTest extends TestCase
         IconGenerator::removeTree($base);
         self::assertFalse(IconGenerator::removeTree($base . '/nope'), 'missing folder returns false');
     }
+
+    // --- publishBuild(): never replace an already complete folder ---------------------------
+
+    /** Creates $root/<name> with the given files and returns its path. */
+    private function makeSet(string $root, string $name, array $files): string
+    {
+        $dir = $root . '/' . $name;
+        mkdir($dir, 0755, true);
+
+        foreach ($files as $file => $content) {
+            file_put_contents($dir . '/' . $file, $content);
+        }
+
+        return $dir;
+    }
+
+    private function publishRoot(): string
+    {
+        $root = sys_get_temp_dir() . '/fgfm_publish_' . bin2hex(random_bytes(4));
+        mkdir($root, 0755, true);
+
+        return $root;
+    }
+
+    public function testPublishKeepsExistingCompleteFolderAndDropsStaging(): void
+    {
+        $root  = $this->publishRoot();
+        $final = $this->makeSet($root, 'abc-123', ['a.png' => 'FIRST']);
+        $tmp   = $this->makeSet($root, '.tmp-abc-123-x', ['a.png' => 'SECOND']);
+        $inode = fileinode($final);
+
+        $complete = static fn (string $dir): bool => is_file($dir . '/a.png') && filesize($dir . '/a.png') > 0;
+
+        self::assertTrue($this->callPrivate('publishBuild', [$tmp, $final, $complete]));
+        self::assertSame('FIRST', file_get_contents($final . '/a.png'), 'the complete set must stay');
+        self::assertSame($inode, fileinode($final), 'final folder must not be renamed away and replaced');
+        self::assertDirectoryDoesNotExist($tmp, 'staging copy is discarded');
+        self::assertSame([], glob($root . '/.old-*') ?: [], 'no swap leftovers');
+
+        IconGenerator::removeTree($root);
+    }
+
+    public function testPublishReplacesExistingIncompleteFolder(): void
+    {
+        $root  = $this->publishRoot();
+        $final = $this->makeSet($root, 'abc-123', ['a.png' => '']);          // zero-byte = broken
+        $tmp   = $this->makeSet($root, '.tmp-abc-123-x', ['a.png' => 'GOOD']);
+
+        $complete = static fn (string $dir): bool => is_file($dir . '/a.png') && filesize($dir . '/a.png') > 0;
+
+        self::assertTrue($this->callPrivate('publishBuild', [$tmp, $final, $complete]));
+        self::assertSame('GOOD', file_get_contents($final . '/a.png'));
+        self::assertDirectoryDoesNotExist($tmp);
+        self::assertSame([], glob($root . '/.old-*') ?: [], 'old broken folder is removed');
+
+        IconGenerator::removeTree($root);
+    }
+
+    public function testPublishWithoutCheckStillReplacesExistingFolder(): void
+    {
+        $root  = $this->publishRoot();
+        $final = $this->makeSet($root, 'abc-123', ['a.png' => 'OLD']);
+        $tmp   = $this->makeSet($root, '.tmp-abc-123-x', ['a.png' => 'NEW']);
+
+        self::assertTrue($this->callPrivate('publishBuild', [$tmp, $final]));
+        self::assertSame('NEW', file_get_contents($final . '/a.png'));
+
+        IconGenerator::removeTree($root);
+    }
+
+    public function testPublishMovesStagingIntoPlaceWhenNothingExists(): void
+    {
+        $root  = $this->publishRoot();
+        $tmp   = $this->makeSet($root, '.tmp-abc-123-x', ['a.png' => 'NEW']);
+        $final = $root . '/abc-123';
+
+        self::assertTrue($this->callPrivate('publishBuild', [$tmp, $final, static fn (): bool => true]));
+        self::assertSame('NEW', file_get_contents($final . '/a.png'));
+
+        IconGenerator::removeTree($root);
+    }
 }

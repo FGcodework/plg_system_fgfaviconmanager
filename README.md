@@ -72,7 +72,7 @@ composer install        # or: apt install phpunit
 vendor/bin/phpunit
 ```
 
-51 PHPUnit tests cover path resolution, contain-fit sizing, color normalisation, the SVG safety scan, the filesystem helpers, the markup cache key and light/dark SVG scoping. `tests/`, `phpunit.xml.dist` and `composer.json` are not part of the install ZIP.
+55 PHPUnit tests cover path resolution, contain-fit sizing, color normalisation, the SVG safety scan, the filesystem helpers, the markup cache key light/dark SVG scoping and cache publishing. `tests/`, `phpunit.xml.dist` and `composer.json` are not part of the install ZIP.
 
 ## Support this project
 
