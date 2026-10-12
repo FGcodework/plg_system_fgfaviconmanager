@@ -30,6 +30,29 @@ defined('_JEXEC') or die;
 class IconGenerator
 {
     /**
+     * Upper bounds for RASTER sources, checked from the file header BEFORE anything is
+     * decoded: a decoded bitmap needs ~4 bytes per pixel in GD (more in Imagick) and the
+     * generator keeps it in memory while it renders several sizes. 25 megapixels
+     * (e.g. 5000x5000, ~100 MB decoded) is far beyond any logo and still safe on a
+     * typical 256 MB memory_limit. SVG has its own limit (MAX_SVG_BYTES).
+     *
+     * @since  1.17.0
+     */
+    private const MAX_RASTER_BYTES  = 20971520;   // 20 MiB file size
+    private const MAX_RASTER_PIXELS = 25000000;   // width * height
+    private const MAX_RASTER_SIDE   = 10000;      // longest edge
+
+    /**
+     * How long a failed SVG rasterisation is remembered for one source version before
+     * it is attempted again (a temporary failure - rsvg-convert missing for a while,
+     * a memory spike - must be able to heal without an administrator touching anything).
+     *
+     * @since  1.17.0
+     */
+    private const RASTER_RETRY_SECONDS = 21600;   // 6 hours
+    private const RASTER_FAILED_MARKER = 'raster-failed.txt';
+
+    /**
      * Standard raster sizes generated for every source image.
      *
      * @var int[]
@@ -100,6 +123,10 @@ class IconGenerator
             return null;
         }
 
+        if (!$this->rasterSourceAllowed($sourcePath)) {
+            return null;
+        }
+
         $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
 
         // Two-part cache key: a stable hash of the source PATH, plus a hash of its
@@ -134,7 +161,7 @@ class IconGenerator
      *
      * @var string[]
      */
-    private array $errors = [];
+    protected array $errors = [];
 
     /**
      * Returns the failure reasons collected during this instance's work.
@@ -223,6 +250,87 @@ class IconGenerator
         $detail = preg_replace('#^[a-z_]+\(.*?\):\s*#i', '', $detail) ?: $detail;
 
         $this->errors[] = $context . ': ' . $detail;
+    }
+
+    /**
+     * Why a raster source is refused for being too large, or null when it is acceptable.
+     * Public and static so the plugin can warn the administrator on Save with the very
+     * same rule the generator enforces.
+     *
+     * Dimensions come from the image header (getimagesize(), or Imagick's pingImage()
+     * for formats GD does not know) - nothing is decoded. A header that cannot be read at
+     * all is refused too: if the size cannot be established it cannot be bounded.
+     *
+     * @since  1.17.0
+     */
+    public static function rasterLimitProblem(string $path): ?string
+    {
+        $bytes = @filesize($path);
+
+        if ($bytes === false) {
+            return 'file size cannot be read';
+        }
+
+        if ($bytes > self::MAX_RASTER_BYTES) {
+            return sprintf('file is %.1f MB, the limit is %d MB', $bytes / 1048576, self::MAX_RASTER_BYTES / 1048576);
+        }
+
+        $width = $height = 0;
+        $info  = @getimagesize($path);
+
+        if (\is_array($info) && ($info[0] ?? 0) > 0 && ($info[1] ?? 0) > 0) {
+            [$width, $height] = $info;
+        } elseif (\class_exists(\Imagick::class)) {
+            try {
+                $probe = new \Imagick();
+                $probe->pingImage($path);
+                $width  = $probe->getImageWidth();
+                $height = $probe->getImageHeight();
+                $probe->clear();
+                $probe->destroy();
+            } catch (\Throwable $e) {
+                // handled below as "unreadable"
+            }
+        }
+
+        if ($width < 1 || $height < 1) {
+            return 'image dimensions cannot be read (damaged or unsupported file)';
+        }
+
+        if (max($width, $height) > self::MAX_RASTER_SIDE || $width * $height > self::MAX_RASTER_PIXELS) {
+            return sprintf(
+                'image is %dx%d px, the limit is %d megapixels and %d px on the longest side',
+                $width,
+                $height,
+                self::MAX_RASTER_PIXELS / 1000000,
+                self::MAX_RASTER_SIDE
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Instance wrapper: true when the raster source is within limits; otherwise records
+     * the reason for debug mode and returns false. SVG is not subject to this check.
+     *
+     * @since  1.17.0
+     */
+    private function rasterSourceAllowed(string $sourcePath): bool
+    {
+        if (strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) === 'svg') {
+            return true;
+        }
+
+        $problem = self::rasterLimitProblem($sourcePath);
+
+        if ($problem === null) {
+            return true;
+        }
+
+        $this->errors[] = 'source rejected (' . basename($sourcePath) . '): ' . $problem;
+
+        return false;
     }
 
     /**
@@ -663,6 +771,10 @@ class IconGenerator
             return null;
         }
 
+        if (!$this->rasterSourceAllowed($sourcePath)) {
+            return null;
+        }
+
         $bgHex = $this->normalizeColor($background) ?? '#ffffff';
 
         $pathHash = 'splash-' . $this->pathHash($sourcePath);
@@ -932,6 +1044,10 @@ class IconGenerator
         if (!is_file($sourcePath) || !is_readable($sourcePath)) {
             $this->errors[] = 'maskable: source file missing or unreadable: ' . $sourcePath;
 
+            return null;
+        }
+
+        if (!$this->rasterSourceAllowed($sourcePath)) {
             return null;
         }
 
@@ -1259,6 +1375,63 @@ class IconGenerator
     }
 
     /**
+     * Whether Imagick can be used to rasterise an SVG. Separate method so tests can
+     * exercise both situations on a machine with or without the extension.
+     *
+     * @since  1.17.0
+     */
+    protected function imagickAvailable(): bool
+    {
+        return \class_exists(\Imagick::class);
+    }
+
+    /**
+     * True when an SVG cache folder needs no further work: icon.svg is present and, if
+     * Imagick could rasterise it, either the PNG set is complete or a recent failure is on
+     * record (vector-only is then the settled, deliberate result until the retry interval
+     * passes).
+     *
+     * @since  1.17.0
+     */
+    private function hasCompleteSvgSet(string $dirFs, bool $canRasterize): bool
+    {
+        $svg = $dirFs . '/icon.svg';
+
+        if (!is_file($svg) || filesize($svg) === 0) {
+            return false;
+        }
+
+        return !$canRasterize
+            || $this->hasCompleteRasterCache($dirFs)
+            || $this->hasFreshRasterFailure($dirFs);
+    }
+
+    /**
+     * True when a SVG rasterisation failure was recorded in $dirFs less than
+     * RASTER_RETRY_SECONDS ago.
+     *
+     * @since  1.17.0
+     */
+    private function hasFreshRasterFailure(string $dirFs): bool
+    {
+        $marker = $dirFs . '/' . self::RASTER_FAILED_MARKER;
+
+        return is_file($marker) && (time() - (int) @filemtime($marker)) < self::RASTER_RETRY_SECONDS;
+    }
+
+    /**
+     * The reason stored with a recorded SVG rasterisation failure.
+     *
+     * @since  1.17.0
+     */
+    private function readRasterFailure(string $dirFs): string
+    {
+        $reason = @file_get_contents($dirFs . '/' . self::RASTER_FAILED_MARKER);
+
+        return $reason !== false && $reason !== '' ? $reason : 'unknown reason';
+    }
+
+    /**
      * SVG sources are always copied through as-is (modern browsers render vector icons
      * natively, at any size, so this remains the primary icon reference).
      *
@@ -1279,9 +1452,16 @@ class IconGenerator
 
         // The raster fallback is optional: without Imagick the folder legitimately holds
         // only icon.svg, so requiring a complete raster set would rebuild on every request.
-        $canRasterize   = \class_exists(\Imagick::class);
-        $rasterReady    = $this->hasCompleteRasterCache($dirFs);
-        $needsRebuild   = !$svgReady || ($canRasterize && !$rasterReady);
+        // Likewise, when rasterising an SVG FAILED (unsafe SVG, rsvg-convert missing, ...)
+        // the failure is remembered for this source version for RASTER_RETRY_SECONDS, so the
+        // same doomed work is not repeated on every cache miss / debug-mode request.
+        $canRasterize = $this->imagickAvailable();
+        $needsRebuild = !$svgReady || !$this->hasCompleteSvgSet($dirFs, $canRasterize);
+
+        if (!$needsRebuild && $canRasterize && !$this->hasCompleteRasterCache($dirFs)) {
+            $this->errors[] = 'SVG raster fallback skipped: it failed earlier for this file (' . $this->readRasterFailure($dirFs)
+                . ') - retrying automatically after a while, or at once when the icon cache is cleared or the file changes';
+        }
 
         if ($needsRebuild) {
             $tmp = $this->beginBuild(\dirname($dirFs), $hash);
@@ -1299,10 +1479,16 @@ class IconGenerator
                 return null;
             }
 
-            // Failure here is tolerated - we still publish the vector-only folder.
-            $this->rasterizeSvgFallback($tmp . '/icon.svg', $tmp, $dirUrl);
+            // Failure here is tolerated - we still publish the vector-only folder, together
+            // with a marker so the next request does not simply try the same thing again.
+            $errorsBefore = \count($this->errors);
 
-            if (!$this->publishBuild($tmp, $dirFs, static fn (string $dir): bool => is_file($dir . '/icon.svg') && filesize($dir . '/icon.svg') > 0)) {
+            if ($canRasterize && $this->rasterizeSvgFallback($tmp . '/icon.svg', $tmp, $dirUrl) === null) {
+                $reason = implode('; ', \array_slice($this->errors, $errorsBefore)) ?: 'unknown reason';
+                @file_put_contents($tmp . '/' . self::RASTER_FAILED_MARKER, $reason);
+            }
+
+            if (!$this->publishBuild($tmp, $dirFs, fn (string $dir): bool => $this->hasCompleteSvgSet($dir, $canRasterize))) {
                 return null;
             }
         }
@@ -1329,7 +1515,7 @@ class IconGenerator
      *
      * @since  1.1.0
      */
-    private function rasterizeSvgFallback(string $svgFilePath, string $dirFs, string $dirUrl): ?array
+    protected function rasterizeSvgFallback(string $svgFilePath, string $dirFs, string $dirUrl): ?array
     {
         $icoFile   = $dirFs . '/favicon.ico';
         $appleFile = $dirFs . '/apple-touch-icon.png';

@@ -61,6 +61,13 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     private const MARKUP_FORMAT = 2;
 
     /**
+     * Staging entries younger than this are treated as a build in progress and are not
+     * deleted by "Clear Icon Cache" (same one-hour threshold the generator uses when it
+     * prunes abandoned staging folders on its own).
+     */
+    private const STAGING_GRACE_SECONDS = 3600;
+
+    /**
      * @return  array<string, string>
      *
      * @since   1.0.0
@@ -197,7 +204,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
 
         if ($debug) {
             $reasons = $this->generator ? $this->generator->getErrors() : [];
-            $notes   = $reasons ? ' | notes: ' . implode(' ;; ', $reasons) : '';
+            $notes   = $reasons ? ' | notes: ' . $this->sanitizeDebugText(implode(' ;; ', $reasons)) : '';
 
             $head .= "\n<!-- Fgfaviconmanager DEBUG: markup " . ($cacheHit ? 'served from cache' : 'generated fresh') . ' ('
                 . substr_count($head, '<link') . ' links, ' . substr_count($head, '<meta') . ' metas), stripMode='
@@ -622,13 +629,16 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
      * maskable variants, splash screens and manifests, plus any leftover staging
      * folders), but keeps the folder itself so it does not need re-creating.
      *
-     * Unlike the automatic pruning elsewhere in the plugin, this is an explicit
-     * administrator action, so it does not skip recently-touched staging folders -
-     * it clears everything, unconditionally.
+     * Finished icon sets, manifests and cached markup are always removed. Staging
+     * entries (".tmp-*" build folders / temp files and ".old-*" swap folders) younger
+     * than STAGING_GRACE_SECONDS are left alone: they may belong to a visitor's request
+     * that is generating icons right now, and deleting them would make that request fail
+     * halfway. Abandoned ones (older than the grace period) are removed as before.
      *
      * @return  int  Number of top-level entries removed.
      *
      * @since   1.9.0
+     * @since   1.17.0  Does not delete staging entries of builds that are still running.
      */
     private function clearIconCache(): int
     {
@@ -646,6 +656,13 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
             }
 
             $path = $entry->getPathname();
+
+            if (
+                (str_starts_with($entry->getFilename(), '.tmp-') || str_starts_with($entry->getFilename(), '.old-'))
+                && time() - $entry->getMTime() < self::STAGING_GRACE_SECONDS
+            ) {
+                continue;
+            }
 
             try {
                 if ($entry->isDir()) {
@@ -743,6 +760,21 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
                 continue;
             }
 
+            $problem = IconGenerator::rasterLimitProblem($path);
+
+            if ($problem !== null) {
+                $app->enqueueMessage(
+                    sprintf(
+                        'FG Favicon Manager: "%s" will not be used — %s. Use a smaller image (a favicon source of 512x512 to 2048x2048 px is plenty).',
+                        $label,
+                        $problem
+                    ),
+                    'warning'
+                );
+
+                continue;
+            }
+
             $info = @getimagesize($path);
 
             if (!$info) {
@@ -830,6 +862,26 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     }
 
     /**
+     * Makes diagnostic text safe to publish in the page source: the site's absolute
+     * filesystem path (JPATH_ROOT, also in its resolved form) is replaced by "[webroot]" so
+     * Debug Mode does not reveal the server's directory layout, and "--" is broken up so
+     * the text can never terminate the surrounding HTML comment early.
+     *
+     * @since  1.17.0
+     */
+    private function sanitizeDebugText(string $text): string
+    {
+        $roots = array_unique(array_filter([JPATH_ROOT, (string) @realpath(JPATH_ROOT)]));
+        usort($roots, static fn ($a, $b) => \strlen($b) <=> \strlen($a));
+
+        foreach ($roots as $root) {
+            $text = str_replace($root, '[webroot]', $text);
+        }
+
+        return str_replace('--', '- -', $text);
+    }
+
+    /**
      * Writes a diagnostic HTML comment right before </head> so the reason for a missing
      * favicon can be inspected via View Source, without needing server log access.
      * Only ever called when the "Debug Mode" plugin option is enabled.
@@ -839,7 +891,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     private function injectDebugComment($app, string $reason): void
     {
         $body    = $app->getBody();
-        $comment = "<!-- Fgfaviconmanager DEBUG: {$reason} -->";
+        $comment = '<!-- Fgfaviconmanager DEBUG: ' . $this->sanitizeDebugText($reason) . ' -->';
 
         if (stripos($body, '</head>') !== false) {
             $body = preg_replace('#</head>#i', $comment . "\n</head>", $body, 1);

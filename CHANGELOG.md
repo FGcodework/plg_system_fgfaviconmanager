@@ -1,5 +1,13 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.17.0 (2026-10-13)
+- **Upper limits for raster sources.** A huge or decompression-bomb PNG/JPEG/WebP could exhaust memory in GD/Imagick on the first (uncached) request. Sources are now checked from the header only, before anything is decoded: file size ≤ 20 MiB, ≤ 25 megapixels, ≤ 10 000 px per side; an unreadable header is refused. Applies to the main icon, the maskable icon and the splash source. A refused source is skipped with a reason in Debug Mode, and Save in the admin now warns about it (`IconGenerator::rasterLimitProblem()`).
+- **Failed SVG rasterisation is remembered.** When the PNG/ICO fallback of an SVG failed (e.g. rsvg-convert error), every request retried it. A `raster-failed.txt` marker with the reason is now published with the vector-only folder and the retry happens at most every 6 hours; the folder is rebuilt immediately when the source changes or when Imagick becomes available.
+- **Fixed a 1.16.5 regression:** a folder containing only `icon.svg` was counted as a complete SVG build, so rasters were never built once a vector-only folder existed. Completeness now requires the rasters (or a fresh failure marker, or no way to rasterise at all).
+- **Debug Mode no longer reveals server paths.** The webroot path is replaced with `[webroot]` in the debug notes and the HTML comment, and `--` is neutralised so the comment cannot be closed early. The Debug field description now says to keep it off on live sites.
+- **Clear Icon Cache no longer deletes staging of running builds.** `.tmp-*` and `.old-*` entries younger than 1 hour are kept; older ones (crashed builds) are still removed.
+- 14 new unit tests (fail before the change): 77/77 pass. Real SVG rasterisation with Imagick was not run in this environment, only the decision logic through test seams.
+
 ## 1.16.7 (2026-10-13)
 - **SVG safety pre-scan now fails closed when `ext-dom` is missing.** Previously, without the PHP DOM extension the plugin fell back to a raw-byte regex that cannot see URL schemes hidden in XML character references and does not inspect CSS, so the safety policy silently depended on an extension being installed. The regex fallback is removed: without `ext-dom` an SVG is not rasterised at all (nothing untrusted reaches ImageMagick or its SVG delegate), the vector icon is still published, only the PNG/ICO/Apple fallbacks are skipped, and the reason is recorded for Debug Mode.
 - `isSvgSafeToRasterize()` asks a new overridable `domAvailable()`, so the fail-closed path is covered by tests without uninstalling the extension.

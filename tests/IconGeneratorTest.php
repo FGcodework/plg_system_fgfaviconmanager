@@ -454,4 +454,191 @@ final class IconGeneratorTest extends TestCase
 
         self::assertFalse($this->callPrivate('isSvgSafeToRasterize', [$path]));
     }
+
+    // --- raster source limits (checked from the header, before decoding) -------------------
+
+    /** A syntactically valid PNG header + IHDR claiming the given size; nothing decodable follows. */
+    private function pngHeaderOnly(int $width, int $height): string
+    {
+        $ihdr = pack('NNCCCCC', $width, $height, 8, 2, 0, 0, 0);
+
+        return "\x89PNG\r\n\x1a\n" . pack('N', 13) . 'IHDR' . $ihdr . pack('N', crc32('IHDR' . $ihdr));
+    }
+
+    private function tempFile(string $suffix, string $content): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'fgfm_lim_') . $suffix;
+        file_put_contents($path, $content);
+        $this->fixtureFiles[] = $path;
+
+        return $path;
+    }
+
+    public function testNormalRasterSourceIsWithinLimits(): void
+    {
+        self::assertNull(IconGenerator::rasterLimitProblem($this->tempFile('.png', $this->pngHeaderOnly(512, 512))));
+        self::assertNull(IconGenerator::rasterLimitProblem($this->tempFile('.png', $this->pngHeaderOnly(5000, 5000))), 'exactly 25 MP is allowed');
+    }
+
+    public function testTooManyPixelsIsRefusedWithoutDecoding(): void
+    {
+        $problem = IconGenerator::rasterLimitProblem($this->tempFile('.png', $this->pngHeaderOnly(8000, 8000)));
+
+        self::assertNotNull($problem);
+        self::assertStringContainsString('8000x8000', $problem);
+    }
+
+    public function testExtremeSideLengthIsRefusedEvenWithFewPixels(): void
+    {
+        self::assertNotNull(IconGenerator::rasterLimitProblem($this->tempFile('.png', $this->pngHeaderOnly(20000, 10))));
+    }
+
+    public function testOversizedFileIsRefused(): void
+    {
+        $path = $this->tempFile('.png', $this->pngHeaderOnly(64, 64));
+        $fh   = fopen($path, 'r+');
+        ftruncate($fh, 21 * 1048576);
+        fclose($fh);
+
+        $problem = IconGenerator::rasterLimitProblem($path);
+
+        self::assertNotNull($problem);
+        self::assertStringContainsString('MB', $problem);
+    }
+
+    public function testUnreadableHeaderIsRefused(): void
+    {
+        self::assertNotNull(IconGenerator::rasterLimitProblem($this->tempFile('.png', 'definitely not an image')));
+    }
+
+    public function testProcessRejectsOversizedRasterBeforeTouchingTheCache(): void
+    {
+        $cache = sys_get_temp_dir() . '/fgfm_limcache_' . bin2hex(random_bytes(4));
+        $src   = $this->tempFile('.png', $this->pngHeaderOnly(9000, 9000));
+
+        self::assertNull($this->generator->process($src, $cache, '/c'));
+        self::assertStringContainsString('source rejected', implode(' ', $this->generator->getErrors()));
+        self::assertDirectoryDoesNotExist($cache, 'no staging folder is created for a refused source');
+    }
+
+    // --- SVG rasterisation failures are remembered, and recover ----------------------------
+
+    /** Generator whose Imagick availability and SVG rasteriser are scripted. */
+    private function scriptedGenerator(bool $imagick, array &$calls, bool $succeed = false): IconGenerator
+    {
+        return new class ($imagick, $calls, $succeed) extends IconGenerator {
+            public function __construct(private bool $imagick, private array &$calls, private bool $succeed)
+            {
+            }
+
+            protected function imagickAvailable(): bool
+            {
+                return $this->imagick;
+            }
+
+            protected function rasterizeSvgFallback(string $svgFilePath, string $dirFs, string $dirUrl): ?array
+            {
+                $this->calls[] = $dirFs;
+
+                if (!$this->succeed) {
+                    $this->errors[] = 'scripted failure';
+
+                    return null;
+                }
+
+                foreach (['favicon.ico', 'apple-touch-icon.png', 'icon-16.png', 'icon-32.png', 'icon-48.png', 'icon-192.png', 'icon-512.png'] as $f) {
+                    file_put_contents($dirFs . '/' . $f, 'png');
+                }
+
+                return ['ok' => true];
+            }
+        };
+    }
+
+    private function svgSource(): string
+    {
+        return $this->tempFile('.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>');
+    }
+
+    public function testFailedSvgRasterisationIsNotRetriedOnTheNextCall(): void
+    {
+        $cache = sys_get_temp_dir() . '/fgfm_svgfail_' . bin2hex(random_bytes(4));
+        $calls = [];
+        $src   = $this->svgSource();
+
+        $first = $this->scriptedGenerator(true, $calls)->process($src, $cache, '/c');
+
+        self::assertSame('svg', $first['type']);
+        self::assertArrayNotHasKey('png', $first, 'vector-only result');
+        self::assertCount(1, $calls);
+
+        $gen    = $this->scriptedGenerator(true, $calls);
+        $second = $gen->process($src, $cache, '/c');
+
+        self::assertSame('svg', $second['type']);
+        self::assertCount(1, $calls, 'the same failing work must not run again');
+        self::assertStringContainsString('failed earlier', implode(' ', $gen->getErrors()));
+        self::assertStringContainsString('scripted failure', implode(' ', $gen->getErrors()), 'original reason is kept');
+
+        IconGenerator::removeTree($cache);
+    }
+
+    public function testSvgRasterisationIsRetriedAfterTheRetryInterval(): void
+    {
+        $cache = sys_get_temp_dir() . '/fgfm_svgretry_' . bin2hex(random_bytes(4));
+        $calls = [];
+        $src   = $this->svgSource();
+
+        $this->scriptedGenerator(true, $calls)->process($src, $cache, '/c');
+        self::assertCount(1, $calls);
+
+        foreach (glob($cache . '/*/raster-failed.txt') as $marker) {
+            touch($marker, time() - 7 * 3600);
+        }
+
+        clearstatcache();
+        $this->scriptedGenerator(true, $calls)->process($src, $cache, '/c');
+
+        self::assertCount(2, $calls, 'an old failure is attempted again');
+
+        IconGenerator::removeTree($cache);
+    }
+
+    public function testRecoveryAfterTemporaryFailureYieldsRasterFallbacks(): void
+    {
+        $cache = sys_get_temp_dir() . '/fgfm_svgheal_' . bin2hex(random_bytes(4));
+        $calls = [];
+        $src   = $this->svgSource();
+
+        $this->scriptedGenerator(true, $calls, false)->process($src, $cache, '/c');
+
+        foreach (glob($cache . '/*/raster-failed.txt') as $marker) {
+            touch($marker, time() - 7 * 3600);
+        }
+
+        clearstatcache();
+        $healed = $this->scriptedGenerator(true, $calls, true)->process($src, $cache, '/c');
+
+        self::assertArrayHasKey('png', $healed);
+        self::assertSame([], glob($cache . '/*/raster-failed.txt') ?: [], 'marker is gone with the replaced folder');
+
+        IconGenerator::removeTree($cache);
+    }
+
+    public function testRasterFallbackIsBuiltWhenImagickAppearsAfterAVectorOnlyBuild(): void
+    {
+        $cache = sys_get_temp_dir() . '/fgfm_svgappear_' . bin2hex(random_bytes(4));
+        $calls = [];
+        $src   = $this->svgSource();
+
+        $vectorOnly = $this->scriptedGenerator(false, $calls)->process($src, $cache, '/c');
+        self::assertArrayNotHasKey('png', $vectorOnly);
+        self::assertCount(0, $calls, 'no Imagick, no attempt, no failure marker');
+
+        $withImagick = $this->scriptedGenerator(true, $calls, true)->process($src, $cache, '/c');
+
+        self::assertArrayHasKey('png', $withImagick, 'the folder holding only icon.svg must not count as complete once Imagick can rasterise');
+
+        IconGenerator::removeTree($cache);
+    }
 }

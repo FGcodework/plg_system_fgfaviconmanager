@@ -392,4 +392,79 @@ final class FgfaviconmanagerTest extends TestCase
 
         \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
     }
+
+    // --- clearIconCache(): leaves running builds alone ---------------------------------------
+
+    private function cacheFixture(): string
+    {
+        $dir = JPATH_ROOT . '/media/plg_system_fgfaviconmanager/cache';
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($dir);
+        mkdir($dir, 0755, true);
+
+        return $dir;
+    }
+
+    public function testClearCacheRemovesFinishedSetsButKeepsFreshStaging(): void
+    {
+        $dir = $this->cacheFixture();
+
+        mkdir($dir . '/abc-111', 0755);                       // finished set
+        file_put_contents($dir . '/abc-111/favicon.ico', 'x');
+        file_put_contents($dir . '/markup-site.json', '[]');  // cached markup
+        mkdir($dir . '/.tmp-abc-222-aa', 0755);                // build running right now
+        file_put_contents($dir . '/.tmp-abc-222-aa/icon-16.png', 'x');
+        mkdir($dir . '/.old-abc-333-1', 0755);                 // swap in progress
+        mkdir($dir . '/.tmp-abc-444-bb', 0755);                // abandoned long ago
+        touch($dir . '/.tmp-abc-444-bb', time() - 7200);
+        file_put_contents($dir . '/.tmp-ee-manifest-x.webmanifest', '{');
+        touch($dir . '/.tmp-ee-manifest-x.webmanifest', time() - 7200);
+        clearstatcache();
+
+        $plugin = (new ReflectionClass(Fgfaviconmanager::class))->newInstanceWithoutConstructor();
+        $ref    = new ReflectionMethod(Fgfaviconmanager::class, 'clearIconCache');
+        $ref->setAccessible(true);
+        $removed = $ref->invoke($plugin);
+
+        self::assertDirectoryDoesNotExist($dir . '/abc-111');
+        self::assertFileDoesNotExist($dir . '/markup-site.json');
+        self::assertDirectoryDoesNotExist($dir . '/.tmp-abc-444-bb', 'abandoned staging is cleaned up');
+        self::assertFileDoesNotExist($dir . '/.tmp-ee-manifest-x.webmanifest');
+        self::assertDirectoryExists($dir . '/.tmp-abc-222-aa', 'running build must survive');
+        self::assertFileExists($dir . '/.tmp-abc-222-aa/icon-16.png');
+        self::assertDirectoryExists($dir . '/.old-abc-333-1');
+        self::assertSame(4, $removed);
+
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($dir);
+    }
+
+    // --- debug output does not reveal server paths -------------------------------------------
+
+    private function sanitizeDebug(string $text): string
+    {
+        $plugin = (new ReflectionClass(Fgfaviconmanager::class))->newInstanceWithoutConstructor();
+        $ref    = new ReflectionMethod(Fgfaviconmanager::class, 'sanitizeDebugText');
+        $ref->setAccessible(true);
+
+        return $ref->invoke($plugin, $text);
+    }
+
+    public function testDebugTextHidesTheWebrootPath(): void
+    {
+        $out = $this->sanitizeDebug("Icon generation failed. resolvedPath='" . JPATH_ROOT . "/images/logo.png' source='images/logo.png'");
+
+        self::assertStringNotContainsString(JPATH_ROOT, $out);
+        self::assertStringContainsString("resolvedPath='[webroot]/images/logo.png'", $out);
+    }
+
+    public function testDebugTextHidesTheResolvedWebrootToo(): void
+    {
+        $out = $this->sanitizeDebug('failed in ' . realpath(JPATH_ROOT) . '/images/x.png');
+
+        self::assertStringNotContainsString((string) realpath(JPATH_ROOT), $out);
+    }
+
+    public function testDebugTextCannotCloseTheHtmlComment(): void
+    {
+        self::assertStringNotContainsString('-->', $this->sanitizeDebug('evil --> <script>alert(1)</script>'));
+    }
 }
