@@ -9,7 +9,7 @@
   <a href="https://www.joomla.org"><img alt="Joomla" src="https://img.shields.io/badge/Joomla-5.x%20%7C%206.x-1a3867?logo=joomla&logoColor=white"></a>
   <a href="https://www.php.net"><img alt="PHP" src="https://img.shields.io/badge/PHP-8.1%2B-purple?logo=php&logoColor=white"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPL--2.0+-green.svg"></a>
-  <a href="releases"><img src="https://img.shields.io/github/downloads/FGcodework/plg_system_fgfaviconmanager/total?cacheSeconds=3600&color=brown" alt="Downloads"></a>
+  <a href="/../../releases"><img src="https://img.shields.io/github/downloads/FGcodework/plg_system_fgfaviconmanager/total?cacheSeconds=3600&color=brown" alt="Downloads"></a>
   <a href="https://ko-fi.com/FGcodework"><img alt="Ko-fi" src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white"></a>
 </p>
 
