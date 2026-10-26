@@ -6,7 +6,7 @@
     <creationDate>2026-07-09</creationDate>
     <copyright>Copyright (C) 2026. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
-    <version>1.18.3</version>
+    <version>1.19.0</version>
     <description>PLG_SYSTEM_FGFAVICONMANAGER_XML_DESCRIPTION</description>
     <namespace path="src">FG\Plugin\System\Fgfaviconmanager</namespace>
     <files>
@@ -191,6 +191,31 @@
                     label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_SHORT_NAME_LABEL"
                     description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_SHORT_NAME_DESC"
                 />
+                <field
+                    name="manifest_display"
+                    type="list"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_DISPLAY_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_DISPLAY_DESC"
+                    default="standalone"
+                    showon="manifest_mode:generate"
+                >
+                    <option value="standalone">PLG_SYSTEM_FGFAVICONMANAGER_DISPLAY_STANDALONE</option>
+                    <option value="minimal-ui">PLG_SYSTEM_FGFAVICONMANAGER_DISPLAY_MINIMAL</option>
+                    <option value="fullscreen">PLG_SYSTEM_FGFAVICONMANAGER_DISPLAY_FULLSCREEN</option>
+                    <option value="browser">PLG_SYSTEM_FGFAVICONMANAGER_DISPLAY_BROWSER</option>
+                </field>
+                <field
+                    name="manifest_orientation"
+                    type="list"
+                    label="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_ORIENTATION_LABEL"
+                    description="PLG_SYSTEM_FGFAVICONMANAGER_FIELD_MANIFEST_ORIENTATION_DESC"
+                    default="any"
+                    showon="manifest_mode:generate"
+                >
+                    <option value="any">PLG_SYSTEM_FGFAVICONMANAGER_ORIENTATION_ANY</option>
+                    <option value="portrait">PLG_SYSTEM_FGFAVICONMANAGER_ORIENTATION_PORTRAIT</option>
+                    <option value="landscape">PLG_SYSTEM_FGFAVICONMANAGER_ORIENTATION_LANDSCAPE</option>
+                </field>
                 <field
                     name="manifest_background_color"
                     type="color"

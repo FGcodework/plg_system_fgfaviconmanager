@@ -556,4 +556,62 @@ final class FgfaviconmanagerTest extends TestCase
         self::assertNull($tmp);
         self::assertNotEmpty($error);
     }
+
+    // --- 1.19.0: manifest display / orientation -----------------------------------------
+
+    private function manifestData(array $params): array
+    {
+        $cache = $this->manifestCacheDir();
+        [, $file] = $this->runEnsureManifest($cache, $params);
+        $data = json_decode((string) file_get_contents($file), true);
+        \FG\Plugin\System\Fgfaviconmanager\Helper\IconGenerator::removeTree($cache);
+
+        return $data;
+    }
+
+    public function testManifestDefaultsToStandaloneWithoutOrientation(): void
+    {
+        $data = $this->manifestData([]);
+
+        self::assertSame('standalone', $data['display']);
+        self::assertArrayNotHasKey('orientation', $data);
+    }
+
+    public function testManifestUsesConfiguredDisplayAndOrientation(): void
+    {
+        $data = $this->manifestData(['manifest_display' => 'fullscreen', 'manifest_orientation' => 'landscape']);
+
+        self::assertSame('fullscreen', $data['display']);
+        self::assertSame('landscape', $data['orientation']);
+    }
+
+    public function testManifestIgnoresInvalidDisplayAndOrientation(): void
+    {
+        $data = $this->manifestData(['manifest_display' => 'evil"}', 'manifest_orientation' => 'sideways']);
+
+        self::assertSame('standalone', $data['display']);
+        self::assertArrayNotHasKey('orientation', $data);
+    }
+
+    public function testMarkupCacheKeyChangesWithDisplayAndOrientation(): void
+    {
+        $key = function (array $params): ?string {
+            $paramsObj = new class ($params) {
+                public function __construct(private array $data) {}
+                public function get(string $k, $d = null) { return $this->data[$k] ?? $d; }
+            };
+            $plugin = (new ReflectionClass(Fgfaviconmanager::class))->newInstanceWithoutConstructor();
+            $prop   = new \ReflectionProperty(\Joomla\CMS\Plugin\CMSPlugin::class, 'params');
+            $prop->setAccessible(true);
+            $prop->setValue($plugin, $paramsObj);
+            $ref = new ReflectionMethod(Fgfaviconmanager::class, 'computeMarkupCacheKey');
+            $ref->setAccessible(true);
+
+            return $ref->invoke($plugin, false, false);
+        };
+
+        $base = $key([]);
+        self::assertNotSame($base, $key(['manifest_display' => 'fullscreen']));
+        self::assertNotSame($base, $key(['manifest_orientation' => 'portrait']));
+    }
 }

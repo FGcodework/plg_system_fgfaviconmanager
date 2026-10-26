@@ -257,7 +257,7 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     {
         $outputParams = [
             'theme_color', 'theme_color_dark', 'admin_theme_color', 'admin_use_dark_mode',
-            'manifest_mode', 'enable_pwa_manifest', 'manifest_name', 'manifest_short_name', 'manifest_background_color',
+            'manifest_mode', 'enable_pwa_manifest', 'manifest_name', 'manifest_short_name', 'manifest_background_color', 'manifest_display', 'manifest_orientation',
             'enable_maskable', 'maskable_padding', 'maskable_background',
             'apple_web_app_capable', 'apple_status_bar_style', 'apple_web_app_title',
             'enable_apple_splash', 'apple_splash_background',
@@ -1525,6 +1525,22 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
     }
 
     /**
+     * Reads a select-type plugin parameter and accepts only one of the allowed values,
+     * so a hand-edited or corrupted parameter can never put an invalid value into the
+     * generated manifest.
+     *
+     * @param   string[]  $allowed
+     *
+     * @since   1.19.0
+     */
+    private function manifestChoice(string $param, array $allowed, string $default): string
+    {
+        $value = (string) $this->params->get($param, $default);
+
+        return \in_array($value, $allowed, true) ? $value : $default;
+    }
+
+    /**
      * Writes (once, cached) a Web App Manifest referencing the generated PNG icon set,
      * for Android / PWA install support. When maskable icons are enabled they are added
      * with purpose "maskable" alongside the normal "any" icons, so Android adaptive
@@ -1586,11 +1602,19 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
             // an absolute URL is required here - Uri::root() supplies one, and it stays
             // correct for subfolder installations too.
             'scope'      => $root,
-            'display'    => 'standalone',
+            'display'    => $this->manifestChoice('manifest_display', ['standalone', 'minimal-ui', 'fullscreen', 'browser'], 'standalone'),
             'background_color' => (string) $this->params->get('manifest_background_color', '#ffffff'),
             'theme_color'      => $themeColor !== '' ? $themeColor : '#ffffff',
             'icons'            => $icons,
         ];
+        // "orientation" is only written when the administrator restricts it; omitting it lets
+        // the device decide, which is also what the manifest spec's default ("any") means.
+        $orientation = $this->manifestChoice('manifest_orientation', ['any', 'portrait', 'landscape'], 'any');
+
+        if ($orientation !== 'any') {
+            $manifest['orientation'] = $orientation;
+        }
+
         // UNESCAPED_UNICODE keeps accented site names readable in the manifest
         // (e.g. "Žilina" instead of "\u017dilina").
         $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

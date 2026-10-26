@@ -1,5 +1,10 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.19.0 (2026-10-26)
+- **Configurable web app display mode and orientation.** The generated PWA manifest had `display` hard-coded to `standalone`. Two new settings on the Android / PWA tab (shown in "Generate" manifest mode): **App Display Mode** (standalone - default, minimal-ui, fullscreen, browser) and **App Orientation** (any - default, portrait, landscape). `orientation` is written only when restricted, so existing sites get a byte-identical manifest. Values are checked against a whitelist, so an invalid stored value falls back to the default instead of ending up in the manifest.
+- Both settings are part of the markup cache key, so changing them takes effect immediately.
+- 4 new unit tests (defaults, configured values, invalid values rejected, cache key reacts): 86/86 pass.
+
 ## 1.18.3 (2026-10-26)
 - **"Download ZIP" reports problems instead of opening a blank page.** The button used to navigate the browser to the export URL, so a disabled plugin (or any server error) ended in an empty or error page. It now downloads the ZIP in the background and saves it only if the server really answered with a ZIP; otherwise it shows the reason in the settings page - the "plugin must be enabled" hint for an empty or 404 answer, or the server's own message (for example a missing PHP `zip` extension).
 - The four outcomes (ZIP, 404, empty answer, plain-text error) were exercised against the button's script with a mocked browser; a real download in Joomla was not tested here.
