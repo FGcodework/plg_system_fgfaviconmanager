@@ -137,7 +137,16 @@ run.addEventListener('click', function () {
   run.disabled = true; status.textContent = cfg.strings.busy;
   var p = params(); p.set('fgaction', 'preview');
   fetch(cfg.url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: p })
-    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      return r.text().then(function (t) {
+        try { return JSON.parse(t); }
+        catch (e) {
+          // Not JSON: show what the server really answered, so the cause is visible.
+          var plain = t.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+          throw new Error('HTTP ' + r.status + ': ' + plain);
+        }
+      });
+    })
     .then(function (data) {
       run.disabled = false;
       var payload = data;
@@ -146,7 +155,7 @@ run.addEventListener('click', function () {
       if (payload && payload.ok) { status.textContent = ''; render(payload.sets); }
       else { status.textContent = (payload && payload.error) ? payload.error : cfg.strings.error; }
     })
-    .catch(function () { run.disabled = false; status.textContent = cfg.strings.error; });
+    .catch(function (e) { run.disabled = false; status.textContent = cfg.strings.error + (e && e.message ? ' [' + e.message + ']' : ''); });
 });
 zip.addEventListener('click', function () {
   if (!val(cfg.main)) { status.textContent = cfg.strings.nosource; return; }

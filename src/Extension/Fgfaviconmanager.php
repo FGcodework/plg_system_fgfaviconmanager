@@ -583,15 +583,22 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
             return $result;
         }
 
-        $input  = $app->getInput();
-        $action = (string) $input->get('fgaction', 'clear', 'cmd');
-
         try {
+            $input  = $app->getInput();
+            $action = (string) $input->get('fgaction', 'clear', 'cmd');
+
             if ($action === 'preview') {
                 $result = $this->buildPreview(
                     $this->sanitizeMediaValue((string) $input->get('source', '', 'raw')),
                     $this->sanitizeMediaValue((string) $input->get('dark', '', 'raw'))
                 );
+
+                // Server file paths are only needed by the ZIP export, never by the browser.
+                foreach ($result['sets'] ?? [] as $key => $set) {
+                    foreach ($set['files'] as $name => $file) {
+                        unset($result['sets'][$key]['files'][$name]['fs']);
+                    }
+                }
             } elseif ($action === 'export') {
                 // Streams a file and ends the request; only returns when nothing could be sent.
                 $result = $this->streamExport(

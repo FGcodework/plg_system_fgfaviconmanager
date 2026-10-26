@@ -1,5 +1,9 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.18.1 (2026-10-26)
+- **Preview/ZIP: diagnostics and hardening after a report that "Preview icons" showed only a generic error.** The button now shows the real server answer (HTTP status and the first part of the response) when it is not valid JSON, instead of a bare "Something went wrong". Reading the request input moved inside the error-handling block, so any failure there is reported as a message rather than a broken response. The preview response no longer contains server file paths (only the ZIP export uses them, internally).
+- The root cause of the original error is not yet confirmed; this release is meant to surface it if it persists.
+
 ## 1.18.0 (2026-10-26)
 - **Live icon preview in the plugin settings.** New "Preview and Export" field on the Frontend Favicon tab. "Preview icons" generates (or reuses from cache) the full icon set from the images currently selected in the form - saved or not - and shows every file (SVG, 16/32/48/192/512 PNG, `favicon.ico`, Apple touch icon, plus the dark-mode set) on a transparency checkerboard with file sizes, exactly as the site will serve them. It also shows the not-square / smaller-than-512 px hints immediately, without waiting for Save.
 - **ZIP export.** "Download ZIP" exports the same files (dark-mode set under `dark/`) plus an `install-snippet.html` with matching `<link>` tags, for sites or tools that do not run this plugin. Requires the PHP `zip` extension (a clear message is shown without it).
