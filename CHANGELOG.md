@@ -1,5 +1,11 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.18.0 (2026-10-26)
+- **Live icon preview in the plugin settings.** New "Preview and Export" field on the Frontend Favicon tab. "Preview icons" generates (or reuses from cache) the full icon set from the images currently selected in the form - saved or not - and shows every file (SVG, 16/32/48/192/512 PNG, `favicon.ico`, Apple touch icon, plus the dark-mode set) on a transparency checkerboard with file sizes, exactly as the site will serve them. It also shows the not-square / smaller-than-512 px hints immediately, without waiting for Save.
+- **ZIP export.** "Download ZIP" exports the same files (dark-mode set under `dark/`) plus an `install-snippet.html` with matching `<link>` tags, for sites or tools that do not run this plugin. Requires the PHP `zip` extension (a clear message is shown without it).
+- Both actions go through the existing com_ajax endpoint (administrator only, CSRF token, `core.edit` on com_plugins); source paths pass through the same containment check as the front end, and error messages hide the webroot path.
+- 5 new unit tests (preview file list and source size, missing/escaping/empty sources, no path leak in errors, ZIP contents and snippet, clean failure): 82/82 pass. The browser UI was syntax-checked but not clicked through in a real Joomla in this environment.
+
 ## 1.17.0 (2026-10-13)
 - **Upper limits for raster sources.** A huge or decompression-bomb PNG/JPEG/WebP could exhaust memory in GD/Imagick on the first (uncached) request. Sources are now checked from the header only, before anything is decoded: file size ≤ 20 MiB, ≤ 25 megapixels, ≤ 10 000 px per side; an unreadable header is refused. Applies to the main icon, the maskable icon and the splash source. A refused source is skipped with a reason in Debug Mode, and Save in the admin now warns about it (`IconGenerator::rasterLimitProblem()`).
 - **Failed SVG rasterisation is remembered.** When the PNG/ICO fallback of an SVG failed (e.g. rsvg-convert error), every request retried it. A `raster-failed.txt` marker with the reason is now published with the vector-only folder and the retry happens at most every 6 hours; the folder is rebuilt immediately when the source changes or when Imagick becomes available.

@@ -467,4 +467,93 @@ final class FgfaviconmanagerTest extends TestCase
     {
         self::assertStringNotContainsString('-->', $this->sanitizeDebug('evil --> <script>alert(1)</script>'));
     }
+
+    // --- 1.18.0: admin preview + ZIP export -------------------------------------------
+
+    private function callPrivate(string $method, array $args)
+    {
+        $ref = new ReflectionMethod(Fgfaviconmanager::class, $method);
+        $ref->setAccessible(true);
+
+        return $ref->invokeArgs($this->plugin, $args);
+    }
+
+    private function makeSourcePng(string $name, int $w, int $h): string
+    {
+        $im = imagecreatetruecolor($w, $h);
+        imagefilledrectangle($im, 0, 0, $w, $h, imagecolorallocate($im, 200, 40, 40));
+        imagepng($im, JPATH_ROOT . '/images/' . $name);
+
+        return 'images/' . $name;
+    }
+
+    public function testPreviewListsEveryGeneratedFileAndSourceSize(): void
+    {
+        $rel    = $this->makeSourcePng('prev-wide.png', 300, 200);
+        $result = $this->callPrivate('buildPreview', [$rel, '']);
+
+        self::assertTrue($result['ok']);
+        $set = $result['sets']['main'];
+        self::assertSame(300, $set['info']['width']);
+        self::assertSame(200, $set['info']['height']);
+
+        foreach (['icon-16.png', 'icon-512.png', 'favicon.ico', 'apple-touch-icon.png'] as $name) {
+            self::assertArrayHasKey($name, $set['files']);
+            self::assertFileExists($set['files'][$name]['fs']);
+            self::assertGreaterThan(0, $set['files'][$name]['bytes']);
+        }
+    }
+
+    public function testPreviewRejectsMissingAndEscapingSources(): void
+    {
+        self::assertFalse($this->callPrivate('buildPreview', ['images/nope.png', ''])['ok']);
+        self::assertFalse($this->callPrivate('buildPreview', ['../outside/passwd', ''])['ok']);
+        self::assertFalse($this->callPrivate('buildPreview', ['', ''])['ok']);
+    }
+
+    public function testPreviewErrorDoesNotLeakTheWebrootPath(): void
+    {
+        file_put_contents(JPATH_ROOT . '/images/broken.png', 'not an image');
+        $result = $this->callPrivate('buildPreview', ['images/broken.png', '']);
+
+        self::assertFalse($result['ok']);
+        self::assertStringNotContainsString(JPATH_ROOT, $result['error']);
+    }
+
+    public function testExportZipContainsFilesDarkFolderAndSnippet(): void
+    {
+        $main = $this->makeSourcePng('exp-main.png', 512, 512);
+        $dark = $this->makeSourcePng('exp-dark.png', 512, 512);
+
+        $error = null;
+        $tmp   = $this->callPrivate('buildExportZip', [$main, $dark, &$error]);
+
+        self::assertNotNull($tmp, (string) $error);
+
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($tmp));
+        $names = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $names[] = $zip->getNameIndex($i);
+        }
+        $snippet = (string) $zip->getFromName('install-snippet.html');
+        $zip->close();
+        @unlink($tmp);
+
+        foreach (['favicon.ico', 'icon-32.png', 'apple-touch-icon.png', 'dark/icon-32.png', 'install-snippet.html'] as $expected) {
+            self::assertContains($expected, $names);
+        }
+
+        self::assertStringContainsString('<link rel="icon" href="/favicon.ico" sizes="any">', $snippet);
+        self::assertStringContainsString('href="/dark/icon-32.png" media="(prefers-color-scheme: dark)"', $snippet);
+    }
+
+    public function testExportZipFailsCleanlyForABadSource(): void
+    {
+        $error = null;
+        $tmp   = $this->callPrivate('buildExportZip', ['images/nope.png', '', &$error]);
+
+        self::assertNull($tmp);
+        self::assertNotEmpty($error);
+    }
 }

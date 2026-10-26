@@ -39,6 +39,7 @@ Everything else is optional and has sensible defaults. Updates arrive through Jo
 | **iOS web app** | `apple-mobile-web-app-*` tags and 9-profile splash screens |
 | **Conflicts** | Template favicon strip (Off / Soft / Aggressive), token-aware and `<head>`-only |
 | **Caching** | Atomic, self-cleaning icon cache and markup cache, "Clear Icon Cache" button |
+| **Admin tools** | Live icon preview (before saving), source quality hints, ZIP export with HTML snippet |
 | **Debugging** | Debug mode explains in an HTML comment why a favicon was not rendered |
 | **Languages** | en-GB, sk-SK |
 
@@ -53,7 +54,7 @@ Everything else is optional and has sensible defaults. Updates arrive through Jo
 | Tab | Content |
 |---|---|
 | Plugin | Plugin info and support note |
-| Frontend Favicon | Favicon source, theme color |
+| Frontend Favicon | Favicon source, preview and ZIP export, theme color |
 | Advanced | Dark favicon, dark theme color, Apple touch icon override, template conflict strip, debug mode |
 | Administrator Favicon | Admin favicon, dark variant, admin theme color |
 | Android / PWA Manifest | Manifest mode, names, colors, maskable icons |
@@ -72,7 +73,7 @@ composer install        # or: apt install phpunit
 vendor/bin/phpunit
 ```
 
-77 PHPUnit tests cover path resolution, contain-fit sizing, color normalisation, the SVG safety scan, the filesystem helpers, the markup cache key light/dark SVG scoping, cache publishing and manifest writes. `tests/`, `phpunit.xml.dist` and `composer.json` are not part of the install ZIP.
+82 PHPUnit tests cover path resolution, contain-fit sizing, color normalisation, the SVG safety scan, the filesystem helpers, the markup cache key light/dark SVG scoping, cache publishing and manifest writes. `tests/`, `phpunit.xml.dist` and `composer.json` are not part of the install ZIP.
 
 ## Support this project
 

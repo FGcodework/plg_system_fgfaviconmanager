@@ -583,8 +583,25 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
             return $result;
         }
 
+        $input  = $app->getInput();
+        $action = (string) $input->get('fgaction', 'clear', 'cmd');
+
         try {
-            $result = ['ok' => true, 'removed' => $this->clearIconCache()];
+            if ($action === 'preview') {
+                $result = $this->buildPreview(
+                    $this->sanitizeMediaValue((string) $input->get('source', '', 'raw')),
+                    $this->sanitizeMediaValue((string) $input->get('dark', '', 'raw'))
+                );
+            } elseif ($action === 'export') {
+                // Streams a file and ends the request; only returns when nothing could be sent.
+                $result = $this->streamExport(
+                    $this->sanitizeMediaValue((string) $input->get('source', '', 'raw')),
+                    $this->sanitizeMediaValue((string) $input->get('dark', '', 'raw')),
+                    $app
+                );
+            } else {
+                $result = ['ok' => true, 'removed' => $this->clearIconCache()];
+            }
         } catch (\Throwable $e) {
             $result = ['ok' => false, 'error' => $e->getMessage()];
         }
@@ -592,6 +609,259 @@ class Fgfaviconmanager extends CMSPlugin implements SubscriberInterface
         $this->deliverAjaxResult($event, $result);
 
         return $result;
+    }
+
+    /**
+     * Generates (or reuses from cache) the icon sets for the sources currently chosen in
+     * the form - saved or not - and describes them for the admin preview.
+     *
+     * @param   string  $source  Relative path of the main source (may be unsaved).
+     * @param   string  $dark    Relative path of the dark-mode source, or ''.
+     *
+     * @return  array{ok: bool, error?: string, sets?: array}
+     *
+     * @since   1.18.0
+     */
+    private function buildPreview(string $source, string $dark): array
+    {
+        $sets = [];
+
+        foreach (['main' => $source, 'dark' => $dark] as $key => $relative) {
+            if ($relative === '') {
+                continue;
+            }
+
+            $set = $this->generatePreviewSet($relative);
+
+            if (isset($set['error'])) {
+                return ['ok' => false, 'error' => $set['error']];
+            }
+
+            $sets[$key] = $set;
+        }
+
+        if (!$sets) {
+            return ['ok' => false, 'error' => 'No source image selected.'];
+        }
+
+        return ['ok' => true, 'sets' => $sets];
+    }
+
+    /**
+     * @return  array  Either ['error' => string] or ['info' => ..., 'files' => [name => ['url' =>, 'fs' =>]]].
+     *
+     * @since   1.18.0
+     */
+    private function generatePreviewSet(string $relative): array
+    {
+        $path = $this->resolveSourcePath($relative);
+
+        if ($path === null) {
+            return ['error' => 'File not found, or the path escapes the site directory: ' . $relative];
+        }
+
+        $cacheFs  = JPATH_ROOT . '/' . self::CACHE_RELATIVE;
+        $cacheUrl = rtrim(Uri::root(true), '/') . '/' . self::CACHE_RELATIVE;
+
+        if (!is_dir($cacheFs)) {
+            IconGenerator::makeDir($cacheFs);
+        }
+
+        $generator = new IconGenerator();
+        $set       = $generator->process($path, $cacheFs, $cacheUrl);
+
+        if (!$set) {
+            $reasons = $generator->getErrors();
+
+            return ['error' => $this->sanitizeDebugText(
+                'Icon generation failed' . ($reasons ? ': ' . implode('; ', $reasons) : '.')
+            )];
+        }
+
+        $info = ['source' => $relative, 'type' => $set['type']];
+
+        if ($set['type'] !== 'svg') {
+            $size = @getimagesize($path);
+
+            if ($size) {
+                $info['width']  = (int) $size[0];
+                $info['height'] = (int) $size[1];
+            }
+        }
+
+        // Map every generated public URL back to its file inside the cache folder. Only the
+        // hash folder and file name from our own generator output are used, never request input.
+        $urls = [];
+
+        if (isset($set['svg'])) {
+            $urls['icon.svg'] = $set['svg'];
+        }
+
+        foreach ($set['png'] ?? [] as $px => $url) {
+            $urls['icon-' . $px . '.png'] = $url;
+        }
+
+        if (isset($set['ico'])) {
+            $urls['favicon.ico'] = $set['ico'];
+        }
+
+        if (isset($set['apple'])) {
+            $urls['apple-touch-icon.png'] = $set['apple'];
+        }
+
+        $files = [];
+
+        foreach ($urls as $name => $url) {
+            $fs = $cacheFs . '/' . basename(\dirname($url)) . '/' . basename($url);
+
+            if (is_file($fs)) {
+                $files[$name] = ['url' => $url, 'bytes' => (int) filesize($fs), 'fs' => $fs];
+            }
+        }
+
+        return ['info' => $info, 'files' => $files];
+    }
+
+    /**
+     * Creates a ZIP of the generated icon files for the given sources, in a temp file.
+     *
+     * Layout: files of the main set in the root, the dark-mode set under "dark/", plus an
+     * "install-snippet.html" with the matching <link> tags for use without this plugin.
+     *
+     * @return  string|null  Path of the temp ZIP (caller deletes it), or null on failure.
+     *
+     * @since   1.18.0
+     */
+    private function buildExportZip(string $source, string $dark, ?string &$error = null): ?string
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            $error = 'The PHP zip extension is not available on this server.';
+
+            return null;
+        }
+
+        $preview = $this->buildPreview($source, $dark);
+
+        if (!$preview['ok']) {
+            $error = $preview['error'];
+
+            return null;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'fgfav');
+
+        if ($tmp === false) {
+            $error = 'Could not create a temporary file.';
+
+            return null;
+        }
+
+        $zip = new \ZipArchive();
+
+        if ($zip->open($tmp, \ZipArchive::OVERWRITE) !== true) {
+            @unlink($tmp);
+            $error = 'Could not create the ZIP archive.';
+
+            return null;
+        }
+
+        $snippet = [];
+
+        foreach ($preview['sets'] as $key => $set) {
+            $prefix = $key === 'dark' ? 'dark/' : '';
+
+            foreach ($set['files'] as $name => $file) {
+                $zip->addFile($file['fs'], $prefix . $name);
+            }
+
+            $snippet = array_merge($snippet, $this->exportSnippetLines($set['files'], $prefix, $key === 'dark'));
+        }
+
+        $zip->addFromString('install-snippet.html', implode("\n", $snippet) . "\n");
+
+        if (!$zip->close()) {
+            @unlink($tmp);
+            $error = 'Could not finish the ZIP archive.';
+
+            return null;
+        }
+
+        return $tmp;
+    }
+
+    /**
+     * @param   array<string, mixed>  $files
+     *
+     * @return  string[]
+     *
+     * @since   1.18.0
+     */
+    private function exportSnippetLines(array $files, string $prefix, bool $dark): array
+    {
+        $media = $dark ? ' media="(prefers-color-scheme: dark)"' : '';
+        $lines = [];
+
+        if (isset($files['icon.svg'])) {
+            $lines[] = '<link rel="icon" type="image/svg+xml" href="/' . $prefix . 'icon.svg"' . $media . '>';
+        }
+
+        if (!$dark) {
+            if (isset($files['favicon.ico'])) {
+                $lines[] = '<link rel="icon" href="/favicon.ico" sizes="any">';
+            }
+
+            foreach ([16, 32, 48, 192, 512] as $px) {
+                if (isset($files['icon-' . $px . '.png'])) {
+                    $lines[] = '<link rel="icon" type="image/png" sizes="' . $px . 'x' . $px . '" href="/icon-' . $px . '.png">';
+                }
+            }
+
+            if (isset($files['apple-touch-icon.png'])) {
+                $lines[] = '<link rel="apple-touch-icon" href="/apple-touch-icon.png">';
+            }
+        } else {
+            if (isset($files['icon-32.png'])) {
+                $lines[] = '<link rel="icon" type="image/png" sizes="32x32" href="/' . $prefix . 'icon-32.png"' . $media . '>';
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Sends the export ZIP to the browser and ends the request. Returns an error array
+     * only when nothing could be sent (the caller then reports it as JSON).
+     *
+     * @since   1.18.0
+     */
+    private function streamExport(string $source, string $dark, $app): array
+    {
+        $error = null;
+        $tmp   = $this->buildExportZip($source, $dark, $error);
+
+        if ($tmp === null) {
+            // The browser navigated here (format=raw), so a JSON/array result would be shown
+            // as junk: send the reason as plain text instead.
+            header('Content-Type: text/plain; charset=utf-8');
+            echo (string) $error;
+            $app->close();
+
+            return ['ok' => false, 'error' => (string) $error];
+        }
+
+        $size = (int) filesize($tmp);
+
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="fg-favicons.zip"');
+        header('Content-Length: ' . $size);
+        header('Cache-Control: no-store');
+
+        readfile($tmp);
+        @unlink($tmp);
+
+        $app->close();
+
+        return ['ok' => true];
     }
 
     /**
