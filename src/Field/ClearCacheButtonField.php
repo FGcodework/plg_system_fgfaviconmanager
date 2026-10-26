@@ -56,6 +56,7 @@ class ClearCacheButtonField extends FormField
             'busy'    => Text::_('PLG_SYSTEM_FGFAVICONMANAGER_CLEARCACHE_BUSY'),
             'done'    => Text::_('PLG_SYSTEM_FGFAVICONMANAGER_CLEARCACHE_DONE'),
             'error'   => Text::_('PLG_SYSTEM_FGFAVICONMANAGER_CLEARCACHE_ERROR'),
+            'disabled' => Text::_('PLG_SYSTEM_FGFAVICONMANAGER_PREVIEW_DISABLED'),
         ];
 
         $html   = [];
@@ -83,6 +84,7 @@ class ClearCacheButtonField extends FormField
         $html[] = '      var payload = data;';
         $html[] = '      if (data && Array.isArray(data.data)) { payload = data.data[0] || {}; }';
         $html[] = '      else if (data && data.data) { payload = data.data; }';
+        $html[] = '      if (data && Array.isArray(data.data) && !data.data.length) { status.textContent = strings.disabled; return; }';
         $html[] = '      if (payload && payload.ok) {';
         $html[] = '        status.textContent = strings.done.replace("%d", payload.removed || 0);';
         $html[] = '      } else {';

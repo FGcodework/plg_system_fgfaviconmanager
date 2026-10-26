@@ -1,5 +1,12 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.18.3 (2026-10-26)
+- **"Download ZIP" reports problems instead of opening a blank page.** The button used to navigate the browser to the export URL, so a disabled plugin (or any server error) ended in an empty or error page. It now downloads the ZIP in the background and saves it only if the server really answered with a ZIP; otherwise it shows the reason in the settings page - the "plugin must be enabled" hint for an empty or 404 answer, or the server's own message (for example a missing PHP `zip` extension).
+- The four outcomes (ZIP, 404, empty answer, plain-text error) were exercised against the button's script with a mocked browser; a real download in Joomla was not tested here.
+
+## 1.18.2 (2026-10-26)
+- **Clear message when the plugin is disabled.** Joomla does not dispatch com_ajax to a disabled plugin, so "Preview icons" and "Clear Icon Cache" got an empty answer and showed only a generic error (the cause of the problem reported with 1.18.0). Both buttons now say that the plugin did not answer and that "System - FG Favicon Manager" must be enabled. The raw server response added in 1.18.1 stays.
+
 ## 1.18.1 (2026-10-26)
 - **Preview/ZIP: diagnostics and hardening after a report that "Preview icons" showed only a generic error.** The button now shows the real server answer (HTTP status and the first part of the response) when it is not valid JSON, instead of a bare "Something went wrong". Reading the request input moved inside the error-handling block, so any failure there is reported as a message rather than a broken response. The preview response no longer contains server file paths (only the ZIP export uses them, internally).
 - The root cause of the original error is not yet confirmed; this release is meant to surface it if it persists.

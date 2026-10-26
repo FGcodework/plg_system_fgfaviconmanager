@@ -50,7 +50,7 @@ class PreviewField extends FormField
         $strings = [];
 
         foreach (
-            ['BUSY', 'ERROR', 'NOSOURCE', 'MAIN', 'DARK', 'NOTSQUARE', 'SMALL', 'EMPTY'] as $key
+            ['BUSY', 'ERROR', 'NOSOURCE', 'DISABLED', 'MAIN', 'DARK', 'NOTSQUARE', 'SMALL', 'EMPTY'] as $key
         ) {
             $strings[strtolower($key)] = Text::_('PLG_SYSTEM_FGFAVICONMANAGER_PREVIEW_' . $key);
         }
@@ -153,15 +153,39 @@ run.addEventListener('click', function () {
       if (data && Array.isArray(data.data)) { payload = data.data[0] || {}; }
       else if (data && data.data) { payload = data.data; }
       if (payload && payload.ok) { status.textContent = ''; render(payload.sets); }
+      else if (!payload || (!payload.error && !Object.keys(payload).length) || (data && data.data && Array.isArray(data.data) && !data.data.length)) { status.textContent = cfg.strings.disabled; }
       else { status.textContent = (payload && payload.error) ? payload.error : cfg.strings.error; }
     })
     .catch(function (e) { run.disabled = false; status.textContent = cfg.strings.error + (e && e.message ? ' [' + e.message + ']' : ''); });
 });
 zip.addEventListener('click', function () {
   if (!val(cfg.main)) { status.textContent = cfg.strings.nosource; return; }
-  status.textContent = '';
+  zip.disabled = true; status.textContent = cfg.strings.busy;
   var p = params(); p.set('fgaction', 'export');
-  window.location.href = cfg.url.replace('format=json', 'format=raw') + '&' + p.toString();
+  var url = cfg.url.replace('format=json', 'format=raw') + '&' + p.toString();
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (r) {
+      var type = r.headers.get('Content-Type') || '';
+      if (r.ok && type.indexOf('application/zip') === 0) {
+        return r.blob().then(function (blob) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'fg-favicons.zip';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
+          status.textContent = '';
+        });
+      }
+      // Anything else is an error: an empty body means the plugin is disabled.
+      return r.text().then(function (t) {
+        var plain = t.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+        status.textContent = r.status === 404 ? cfg.strings.disabled
+          : plain && type.indexOf('text/plain') === 0 ? plain
+          : (plain ? cfg.strings.error + ' [HTTP ' + r.status + ': ' + plain + ']' : cfg.strings.disabled);
+      });
+    })
+    .catch(function (e) { status.textContent = cfg.strings.error + (e && e.message ? ' [' + e.message + ']' : ''); })
+    .then(function () { zip.disabled = false; });
 });
 JS;
         $html[] = '})();';
