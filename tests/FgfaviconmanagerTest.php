@@ -614,4 +614,39 @@ final class FgfaviconmanagerTest extends TestCase
         self::assertNotSame($base, $key(['manifest_display' => 'fullscreen']));
         self::assertNotSame($base, $key(['manifest_orientation' => 'portrait']));
     }
+
+    // --- 1.19.1: language files must pass the JED checker's string validation ----------
+
+    public function testEveryLanguageLineIsOneQuotedStringWithoutInnerQuotes(): void
+    {
+        $files = glob(\dirname(__DIR__) . '/language/*/*.ini') ?: [];
+        self::assertNotEmpty($files);
+
+        foreach ($files as $file) {
+            foreach (file($file, FILE_IGNORE_NEW_LINES) as $n => $line) {
+                $line = trim($line);
+
+                if ($line === '' || $line[0] === ';') {
+                    continue;
+                }
+
+                self::assertMatchesRegularExpression(
+                    '/^[A-Z0-9_]+="[^"]*"$/',
+                    $line,
+                    basename(\dirname($file)) . '/' . basename($file) . ' line ' . ($n + 1)
+                );
+            }
+        }
+    }
+
+    public function testLanguageFilesDefineTheSameKeys(): void
+    {
+        $keys = static fn (string $lang, string $name): array => array_keys(
+            parse_ini_file(\dirname(__DIR__) . '/language/' . $lang . '/plg_system_fgfaviconmanager' . $name . '.ini')
+        );
+
+        foreach (['', '.sys'] as $name) {
+            self::assertEqualsCanonicalizing($keys('en-GB', $name), $keys('sk-SK', $name));
+        }
+    }
 }

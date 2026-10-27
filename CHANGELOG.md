@@ -1,5 +1,9 @@
 # Changelog — plg_system_fgfaviconmanager
 
+## 1.19.1 (2026-10-27)
+- **Fixed an invalid language string (JED checker, en-GB line 115).** `PLG_SYSTEM_FGFAVICONMANAGER_PREVIEW_DISABLED` contained unescaped straight double quotes inside its value, which the JED language validator rejects (and Joomla's INI parser can misread). The plugin name in the message now uses typographic quotes, as the sk-SK file already did.
+- 2 new unit tests guard all language files: every line must be a single `KEY="value"` string with no inner double quotes (fails on the previous version), and en-GB / sk-SK must define identical keys. 88/88 pass.
+
 ## 1.19.0 (2026-10-26)
 - **Configurable web app display mode and orientation.** The generated PWA manifest had `display` hard-coded to `standalone`. Two new settings on the Android / PWA tab (shown in "Generate" manifest mode): **App Display Mode** (standalone - default, minimal-ui, fullscreen, browser) and **App Orientation** (any - default, portrait, landscape). `orientation` is written only when restricted, so existing sites get a byte-identical manifest. Values are checked against a whitelist, so an invalid stored value falls back to the default instead of ending up in the manifest.
 - Both settings are part of the markup cache key, so changing them takes effect immediately.
